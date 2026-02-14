@@ -357,12 +357,24 @@ export async function uninstallScheduledTask({
   const taskName = resolveTaskName(env);
   await execSchtasks(["/Delete", "/F", "/TN", taskName]);
 
-  const scriptPath = resolveTaskScriptPath(env);
+  // Remove watchdog script
+  const watchdogScriptPath = resolveWatchdogScriptPath(env);
   try {
-    await fs.unlink(scriptPath);
-    stdout.write(`${formatLine("Removed task script", scriptPath)}\n`);
+    await fs.unlink(watchdogScriptPath);
+    stdout.write(`${formatLine("Removed task script", watchdogScriptPath)}\n`);
   } catch {
-    stdout.write(`Task script not found at ${scriptPath}\n`);
+    stdout.write(`Task script not found at ${watchdogScriptPath}\n`);
+  }
+
+  // Also try to remove old gateway.cmd if it exists
+  const oldScriptPath = resolveTaskScriptPath(env);
+  if (oldScriptPath !== watchdogScriptPath) {
+    try {
+      await fs.unlink(oldScriptPath);
+      stdout.write(`${formatLine("Removed legacy script", oldScriptPath)}\n`);
+    } catch {
+      // Ignore
+    }
   }
 }
 
