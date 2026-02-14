@@ -786,6 +786,10 @@
     {
       "source": "/platforms/northflank",
       "destination": "/install/northflank"
+    },
+    {
+      "source": "/gateway/trusted-proxy",
+      "destination": "/gateway/trusted-proxy-auth"
     }
   ],
   "navigation": {
@@ -1004,10 +1008,6 @@
                 ]
               },
               {
-                "group": "Hooks",
-                "pages": ["hooks/soul-evil"]
-              },
-              {
                 "group": "Media and devices",
                 "pages": [
                   "nodes/index",
@@ -1110,6 +1110,7 @@
                       "gateway/configuration-reference",
                       "gateway/configuration-examples",
                       "gateway/authentication",
+                      "gateway/trusted-proxy-auth",
                       "gateway/health",
                       "gateway/heartbeat",
                       "gateway/doctor",
@@ -1522,10 +1523,6 @@
                   "zh-CN/automation/poll",
                   "zh-CN/automation/auth-monitoring"
                 ]
-              },
-              {
-                "group": "Hooks",
-                "pages": ["zh-CN/hooks/soul-evil"]
               },
               {
                 "group": "媒体与设备",
