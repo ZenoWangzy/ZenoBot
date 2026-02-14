@@ -43,7 +43,8 @@ function quoteCmdArg(value: string): string {
 
 /**
  * Build schtasks arguments for watchdog-style task with repeat interval.
- * This creates a task that runs at login and repeats every 1 minute.
+ * This creates a task that runs every 1 minute.
+ * Note: /RI requires /SC MINUTE, cannot use ONLOGON with repeat interval.
  */
 export function buildWatchdogTaskArgs(params: {
   taskName: string;
@@ -53,15 +54,17 @@ export function buildWatchdogTaskArgs(params: {
   const { taskName, scriptPath, taskUser } = params;
   const quotedScript = quoteCmdArg(scriptPath);
 
+  // Use MINUTE schedule with /MO 1 for every 1 minute
+  // This ensures gateway is restarted within 1 minute if it crashes
   const baseArgs = [
     "/Create",
     "/F",
     "/SC",
-    "ONLOGON",
+    "MINUTE",
+    "/MO",
+    "1", // Every 1 minute
     "/RL",
     "LIMITED",
-    "/RI",
-    "1", // Repeat every 1 minute
     "/TN",
     taskName,
     "/TR",

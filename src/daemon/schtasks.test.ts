@@ -307,16 +307,16 @@ describe("readScheduledTaskCommand", () => {
 });
 
 describe("buildWatchdogTaskArgs", () => {
-  it("includes repeat interval for watchdog task", () => {
+  it("includes MINUTE schedule for watchdog task", () => {
     const args = buildWatchdogTaskArgs({
       taskName: "OpenClaw Gateway",
       scriptPath: "C:\\Users\\test\\.openclaw\\gateway-watchdog.cmd",
     });
 
     expect(args).toContain("/SC");
-    expect(args).toContain("ONLOGON");
-    expect(args).toContain("/RI");
-    expect(args).toContain("1"); // 1 minute repeat
+    expect(args).toContain("MINUTE");
+    expect(args).toContain("/MO");
+    expect(args).toContain("1"); // Every 1 minute
     expect(args).toContain("/TN");
     expect(args).toContain("OpenClaw Gateway");
   });
