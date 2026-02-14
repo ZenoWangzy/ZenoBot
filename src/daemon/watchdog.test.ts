@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { describe, expect, it } from "vitest";
 import { isPortListening, resolveWatchdogScriptPath, buildWatchdogScript } from "./watchdog.js";
 
 describe("watchdog", () => {

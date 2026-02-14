@@ -4,7 +4,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import type { GatewayServiceRuntime } from "./service-runtime.js";
 import { colorize, isRich, theme } from "../terminal/theme.js";
-import { formatGatewayServiceDescription, resolveGatewayWindowsTaskName } from "./constants.js";
+import { resolveGatewayWindowsTaskName } from "./constants.js";
 import { resolveGatewayStateDir } from "./paths.js";
 import { parseKeyValueOutput } from "./runtime-parse.js";
 import { buildWatchdogScript, resolveWatchdogScriptPath } from "./watchdog.js";
@@ -201,37 +201,6 @@ export function parseSchtasksQuery(output: string): ScheduledTaskInfo {
   return info;
 }
 
-function buildTaskScript({
-  description,
-  programArguments,
-  workingDirectory,
-  environment,
-}: {
-  description?: string;
-  programArguments: string[];
-  workingDirectory?: string;
-  environment?: Record<string, string | undefined>;
-}): string {
-  const lines: string[] = ["@echo off"];
-  if (description?.trim()) {
-    lines.push(`rem ${description.trim()}`);
-  }
-  if (workingDirectory) {
-    lines.push(`cd /d ${quoteCmdArg(workingDirectory)}`);
-  }
-  if (environment) {
-    for (const [key, value] of Object.entries(environment)) {
-      if (!value) {
-        continue;
-      }
-      lines.push(`set ${key}=${value}`);
-    }
-  }
-  const command = programArguments.map(quoteCmdArg).join(" ");
-  lines.push(command);
-  return `${lines.join("\r\n")}\r\n`;
-}
-
 async function execSchtasks(
   args: string[],
 ): Promise<{ stdout: string; stderr: string; code: number }> {
@@ -276,27 +245,18 @@ export async function installScheduledTask({
   programArguments,
   workingDirectory,
   environment,
-  description,
 }: {
   env: Record<string, string | undefined>;
   stdout: NodeJS.WritableStream;
   programArguments: string[];
   workingDirectory?: string;
   environment?: Record<string, string | undefined>;
-  description?: string;
 }): Promise<{ scriptPath: string }> {
   await assertSchtasksAvailable();
 
   // Use watchdog script instead of direct gateway script
   const watchdogScriptPath = resolveWatchdogScriptPath(env);
   await fs.mkdir(path.dirname(watchdogScriptPath), { recursive: true });
-
-  const taskDescription =
-    description ??
-    formatGatewayServiceDescription({
-      profile: env.OPENCLAW_PROFILE,
-      version: environment?.OPENCLAW_SERVICE_VERSION ?? env.OPENCLAW_SERVICE_VERSION,
-    });
 
   // Build watchdog script that checks port before starting
   const watchdogScript = buildWatchdogScript({
