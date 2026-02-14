@@ -133,6 +133,35 @@ export function listChunks(params: {
   }));
 }
 
+// ---------------------------------------------------------------------------
+// Access tracking (Phase 3)
+// ---------------------------------------------------------------------------
+
+/**
+ * Update last_access and access_count for the given chunk IDs.
+ * Fire-and-forget — errors are silently ignored.
+ */
+export function recordAccessHits(params: {
+  db: DatabaseSync;
+  chunkIds: string[];
+  now?: number;
+}): void {
+  if (params.chunkIds.length === 0) {
+    return;
+  }
+  const now = params.now ?? Date.now();
+  const stmt = params.db.prepare(
+    `UPDATE chunks SET last_access = ?, access_count = access_count + 1 WHERE id = ?`,
+  );
+  for (const id of params.chunkIds) {
+    try {
+      stmt.run(now, id);
+    } catch {
+      // best-effort
+    }
+  }
+}
+
 export async function searchKeyword(params: {
   db: DatabaseSync;
   ftsTable: string;

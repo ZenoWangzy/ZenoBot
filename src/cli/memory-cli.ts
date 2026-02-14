@@ -8,8 +8,11 @@ import { loadConfig } from "../config/config.js";
 import { resolveStateDir } from "../config/paths.js";
 import { resolveSessionTranscriptsDirForAgent } from "../config/sessions/paths.js";
 import { setVerbose } from "../globals.js";
+import { checkMemoryHealth, formatHealthReport } from "../memory/health.js";
 import { getMemorySearchManager, type MemorySearchManagerResult } from "../memory/index.js";
 import { listMemoryFiles, normalizeExtraMemoryPaths } from "../memory/internal.js";
+import { runMaintenance } from "../memory/maintenance.js";
+import { getTierStats } from "../memory/tiering.js";
 import { defaultRuntime } from "../runtime.js";
 import { formatDocsLink } from "../terminal/links.js";
 import { colorize, isRich, theme } from "../terminal/theme.js";
@@ -641,6 +644,171 @@ export function registerMemoryCli(program: Command) {
           },
         });
       }
+    });
+
+  memory
+    .command("health")
+    .description("Run memory health diagnostics")
+    .option("--agent <id>", "Agent id (default: default agent)")
+    .option("--json", "Print JSON")
+    .action(async (opts: MemoryCommandOptions) => {
+      const cfg = loadConfig();
+      const agentId = resolveAgent(cfg, opts.agent);
+      await withManager<MemoryManager>({
+        getManager: () => getMemorySearchManager({ cfg, agentId }),
+        onMissing: (error) => defaultRuntime.log(error ?? "Memory search disabled."),
+        onCloseError: (err) =>
+          defaultRuntime.error(`Memory manager close failed: ${formatErrorMessage(err)}`),
+        close: async (manager) => {
+          await manager.close?.();
+        },
+        run: async (manager) => {
+          const status = manager.status();
+          const dbPath = status.dbPath;
+          if (!dbPath) {
+            defaultRuntime.error("Cannot determine database path.");
+            process.exitCode = 1;
+            return;
+          }
+          try {
+            const { DatabaseSync } = await import("node:sqlite");
+            const db = new DatabaseSync(dbPath, { open: true });
+            try {
+              const health = checkMemoryHealth(db);
+              if (opts.json) {
+                defaultRuntime.log(JSON.stringify(health, null, 2));
+              } else {
+                defaultRuntime.log(formatHealthReport(health));
+              }
+            } finally {
+              db.close();
+            }
+          } catch (err) {
+            defaultRuntime.error(`Health check failed: ${formatErrorMessage(err)}`);
+            process.exitCode = 1;
+          }
+        },
+      });
+    });
+
+  memory
+    .command("tier")
+    .description("Show memory tier distribution")
+    .option("--agent <id>", "Agent id (default: default agent)")
+    .option("--json", "Print JSON")
+    .action(async (opts: MemoryCommandOptions) => {
+      const cfg = loadConfig();
+      const agentId = resolveAgent(cfg, opts.agent);
+      await withManager<MemoryManager>({
+        getManager: () => getMemorySearchManager({ cfg, agentId }),
+        onMissing: (error) => defaultRuntime.log(error ?? "Memory search disabled."),
+        onCloseError: (err) =>
+          defaultRuntime.error(`Memory manager close failed: ${formatErrorMessage(err)}`),
+        close: async (manager) => {
+          await manager.close?.();
+        },
+        run: async (manager) => {
+          const status = manager.status();
+          const dbPath = status.dbPath;
+          if (!dbPath) {
+            defaultRuntime.error("Cannot determine database path.");
+            process.exitCode = 1;
+            return;
+          }
+          try {
+            const { DatabaseSync } = await import("node:sqlite");
+            const db = new DatabaseSync(dbPath, { open: true });
+            try {
+              const stats = getTierStats(db);
+              if (opts.json) {
+                defaultRuntime.log(JSON.stringify(stats, null, 2));
+              } else {
+                const rich = isRich();
+                const lines = [
+                  colorize(rich, theme.heading, "Memory Tiers"),
+                  `  🔥 Hot:  ${stats.hot}`,
+                  `  🌤️ Warm: ${stats.warm}`,
+                  `  🧊 Cold: ${stats.cold}`,
+                  `  Total: ${stats.total}`,
+                ];
+                defaultRuntime.log(lines.join("\n"));
+              }
+            } finally {
+              db.close();
+            }
+          } catch (err) {
+            defaultRuntime.error(`Tier stats failed: ${formatErrorMessage(err)}`);
+            process.exitCode = 1;
+          }
+        },
+      });
+    });
+
+  memory
+    .command("maintain")
+    .description("Run memory maintenance (reclassify tiers, optional compaction)")
+    .option("--agent <id>", "Agent id (default: default agent)")
+    .option("--compact", "Compact cold chunks (strip embeddings)", false)
+    .option("--dry-run", "Preview changes without writing", false)
+    .option("--json", "Print JSON")
+    .action(async (opts: MemoryCommandOptions & { compact?: boolean; dryRun?: boolean }) => {
+      const cfg = loadConfig();
+      const agentId = resolveAgent(cfg, opts.agent);
+      await withManager<MemoryManager>({
+        getManager: () => getMemorySearchManager({ cfg, agentId }),
+        onMissing: (error) => defaultRuntime.log(error ?? "Memory search disabled."),
+        onCloseError: (err) =>
+          defaultRuntime.error(`Memory manager close failed: ${formatErrorMessage(err)}`),
+        close: async (manager) => {
+          await manager.close?.();
+        },
+        run: async (manager) => {
+          const status = manager.status();
+          const dbPath = status.dbPath;
+          if (!dbPath) {
+            defaultRuntime.error("Cannot determine database path.");
+            process.exitCode = 1;
+            return;
+          }
+          try {
+            const { DatabaseSync } = await import("node:sqlite");
+            const db = new DatabaseSync(dbPath, { open: true });
+            try {
+              const result = runMaintenance({
+                db,
+                options: {
+                  compact: Boolean(opts.compact),
+                  dryRun: Boolean(opts.dryRun),
+                },
+              });
+              if (opts.json) {
+                defaultRuntime.log(JSON.stringify(result, null, 2));
+              } else {
+                const rich = isRich();
+                const prefix = opts.dryRun ? "[dry-run] " : "";
+                const lines = [
+                  colorize(rich, theme.heading, `${prefix}Memory Maintenance`),
+                  `  Promoted: ${result.reclassify.promoted}`,
+                  `  Demoted:  ${result.reclassify.demoted}`,
+                  `  Unchanged: ${result.reclassify.unchanged}`,
+                  result.compacted > 0 ? `  Compacted: ${result.compacted}` : null,
+                  `  Duration: ${result.durationMs}ms`,
+                  "",
+                  `  🔥 Hot:  ${result.tierStats.hot}`,
+                  `  🌤️ Warm: ${result.tierStats.warm}`,
+                  `  🧊 Cold: ${result.tierStats.cold}`,
+                ].filter(Boolean) as string[];
+                defaultRuntime.log(lines.join("\n"));
+              }
+            } finally {
+              db.close();
+            }
+          } catch (err) {
+            defaultRuntime.error(`Maintenance failed: ${formatErrorMessage(err)}`);
+            process.exitCode = 1;
+          }
+        },
+      });
     });
 
   memory

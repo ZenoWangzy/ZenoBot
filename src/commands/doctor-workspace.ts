@@ -58,3 +58,41 @@ export function formatLegacyWorkspaceWarning(detection: LegacyWorkspaceDetection
     "If unused, archive or move to Trash.",
   ].join("\n");
 }
+
+// ---------------------------------------------------------------------------
+// Memory health check (Phase 4)
+// ---------------------------------------------------------------------------
+
+export type MemoryDoctorResult = {
+  checked: boolean;
+  status?: "ok" | "warn" | "error";
+  issues?: string[];
+  error?: string;
+};
+
+/**
+ * Run a quick memory health check as part of `openclaw doctor`.
+ * Returns a lightweight result suitable for inclusion in the doctor report.
+ */
+export async function checkMemoryDoctor(dbPath: string): Promise<MemoryDoctorResult> {
+  try {
+    const { DatabaseSync } = await import("node:sqlite");
+    const { checkMemoryHealth } = await import("../memory/health.js");
+    const db = new DatabaseSync(dbPath, { open: true });
+    try {
+      const health = checkMemoryHealth(db);
+      return {
+        checked: true,
+        status: health.status,
+        issues: health.issues.map((i) => `[${i.code}] ${i.message}`),
+      };
+    } finally {
+      db.close();
+    }
+  } catch (err) {
+    return {
+      checked: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}

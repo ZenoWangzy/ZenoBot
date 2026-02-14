@@ -1,14 +1,16 @@
 /**
  * Session memory hook handler
  *
- * Saves session context to memory when /new command is triggered
- * Creates a new dated memory file with LLM-generated slug
+ * Saves session context to memory when /new command is triggered.
+ * Produces structured memory files with category, importance, and tags
+ * metadata so the vector index can filter and rank results.
  */
 
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import type { OpenClawConfig } from "../../../config/config.js";
+import type { MemoryCategory, MemoryImportance } from "../../../memory/memory-categories.js";
 import type { HookHandler } from "../../hooks.js";
 import { resolveAgentWorkspaceDir } from "../../../agents/agent-scope.js";
 import { resolveStateDir } from "../../../config/paths.js";
@@ -164,19 +166,31 @@ const saveSessionToMemory: HookHandler = async (event) => {
     const sessionId = (sessionEntry.sessionId as string) || "unknown";
     const source = (context.commandSource as string) || "unknown";
 
-    // Build Markdown entry
+    // Classify session content to extract structured metadata
+    const classification = classifySessionContent(sessionContent);
+
+    // Build structured Markdown entry
     const entryParts = [
-      `# Session: ${dateStr} ${timeStr} UTC`,
+      `# ${dateStr}: ${slug}`,
+      `tags: ${classification.tags.map((t) => `#${t}`).join(" ") || "#session"}`,
+      `importance: ${classification.importance}`,
+      `category: ${classification.category}`,
       "",
       `- **Session Key**: ${event.sessionKey}`,
       `- **Session ID**: ${sessionId}`,
       `- **Source**: ${source}`,
+      `- **Time**: ${timeStr} UTC`,
       "",
     ];
 
     // Include conversation content if available
     if (sessionContent) {
-      entryParts.push("## Conversation Summary", "", sessionContent, "");
+      entryParts.push(
+        `## ${CATEGORY_LABELS[classification.category] ?? "Summary"}`,
+        "",
+        sessionContent,
+        "",
+      );
     }
 
     const entry = entryParts.join("\n");
@@ -200,5 +214,102 @@ const saveSessionToMemory: HookHandler = async (event) => {
     }
   }
 };
+
+// ---------------------------------------------------------------------------
+// Classification helpers
+// ---------------------------------------------------------------------------
+
+const CATEGORY_LABELS: Record<MemoryCategory, string> = {
+  decision: "Decision",
+  action: "Action Items",
+  preference: "Preferences",
+  context: "Context",
+  note: "Conversation Summary",
+};
+
+const DECISION_KEYWORDS = [
+  "decided",
+  "decision",
+  "chose",
+  "选择",
+  "决定",
+  "agreed",
+  "approve",
+  "settled",
+  "conclusion",
+  "结论",
+  "方案",
+];
+const ACTION_KEYWORDS = [
+  "todo",
+  "action",
+  "task",
+  "deadline",
+  "待办",
+  "任务",
+  "implement",
+  "fix",
+  "build",
+  "deploy",
+  "ship",
+  "create",
+];
+const PREFERENCE_KEYWORDS = [
+  "prefer",
+  "like",
+  "always",
+  "never",
+  "偏好",
+  "喜欢",
+  "style",
+  "convention",
+];
+
+/**
+ * Best-effort heuristic classification of session content.
+ *
+ * This runs synchronously and does not call the LLM — it is a fast
+ * fallback that tags the memory file with reasonable metadata even when
+ * the model is unavailable.
+ */
+function classifySessionContent(content: string | null): {
+  category: MemoryCategory;
+  importance: MemoryImportance;
+  tags: string[];
+} {
+  if (!content) {
+    return { category: "note", importance: "low", tags: ["session"] };
+  }
+
+  const lower = content.toLowerCase();
+  const tags: string[] = ["session"];
+  let category: MemoryCategory = "note";
+  let importance: MemoryImportance = "medium";
+
+  const hasDecision = DECISION_KEYWORDS.some((kw) => lower.includes(kw));
+  const hasAction = ACTION_KEYWORDS.some((kw) => lower.includes(kw));
+  const hasPreference = PREFERENCE_KEYWORDS.some((kw) => lower.includes(kw));
+
+  if (hasDecision) {
+    category = "decision";
+    importance = "high";
+    tags.push("decision");
+  } else if (hasAction) {
+    category = "action";
+    importance = "high";
+    tags.push("action");
+  } else if (hasPreference) {
+    category = "preference";
+    importance = "medium";
+    tags.push("preference");
+  }
+
+  // Long conversations are more likely to contain important context
+  if (content.length > 3000 && importance === "medium") {
+    importance = "high";
+  }
+
+  return { category, importance, tags };
+}
 
 export default saveSessionToMemory;

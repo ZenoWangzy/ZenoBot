@@ -8,7 +8,7 @@
 import type { WorkspaceBootstrapFile } from "../agents/workspace.js";
 import type { OpenClawConfig } from "../config/config.js";
 
-export type InternalHookEventType = "command" | "session" | "agent" | "gateway";
+export type InternalHookEventType = "command" | "session" | "agent" | "gateway" | "memory";
 
 export type AgentBootstrapHookContext = {
   workspaceDir: string;
@@ -164,6 +164,48 @@ export function createInternalHookEvent(
     timestamp: new Date(),
     messages: [],
   };
+}
+
+// ---------------------------------------------------------------------------
+// Memory-related hook helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Convenience: fire a `memory:remember` hook when the user explicitly asks
+ * the agent to remember something.  Callers should include `content` in the
+ * context so downstream handlers know *what* to persist.
+ */
+export function triggerMemoryRememberHook(params: {
+  sessionKey: string;
+  content: string;
+  cfg?: unknown;
+}): Promise<void> {
+  return triggerInternalHook(
+    createInternalHookEvent("memory", "remember", params.sessionKey, {
+      content: params.content,
+      cfg: params.cfg,
+    }),
+  );
+}
+
+/**
+ * Fire a `memory:tool_decision` hook after the agent makes a significant tool
+ * call (e.g. file edit, deployment).  Downstream handlers can persist a
+ * structured record of the decision.
+ */
+export function triggerMemoryToolDecisionHook(params: {
+  sessionKey: string;
+  toolName: string;
+  summary: string;
+  cfg?: unknown;
+}): Promise<void> {
+  return triggerInternalHook(
+    createInternalHookEvent("memory", "tool_decision", params.sessionKey, {
+      toolName: params.toolName,
+      summary: params.summary,
+      cfg: params.cfg,
+    }),
+  );
 }
 
 export function isAgentBootstrapEvent(event: InternalHookEvent): event is AgentBootstrapHookEvent {

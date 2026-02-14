@@ -1,7 +1,9 @@
 import os from "node:os";
 import path from "node:path";
 import type { OpenClawConfig, MemorySearchConfig } from "../config/config.js";
+import type { PreloadConfig } from "../memory/preloader.js";
 import { resolveStateDir } from "../config/paths.js";
+import { resolvePreloadConfig } from "../memory/preloader.js";
 import { clampInt, clampNumber, resolveUserPath } from "../utils.js";
 import { resolveAgentConfig } from "./agent-scope.js";
 
@@ -68,6 +70,7 @@ export type ResolvedMemorySearchConfig = {
     enabled: boolean;
     maxEntries?: number;
   };
+  preload: PreloadConfig;
 };
 
 const DEFAULT_OPENAI_MODEL = "text-embedding-3-small";
@@ -252,6 +255,8 @@ function mergeConfig(
   const candidateMultiplier = clampInt(hybrid.candidateMultiplier, 1, 20);
   const deltaBytes = clampInt(sync.sessions.deltaBytes, 0, Number.MAX_SAFE_INTEGER);
   const deltaMessages = clampInt(sync.sessions.deltaMessages, 0, Number.MAX_SAFE_INTEGER);
+  const preload = resolvePreloadConfig(overrides?.preload ?? defaults?.preload);
+
   return {
     enabled,
     sources,
@@ -290,6 +295,7 @@ function mergeConfig(
           ? Math.max(1, Math.floor(cache.maxEntries))
           : undefined,
     },
+    preload,
   };
 }
 

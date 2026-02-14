@@ -231,18 +231,38 @@ export class MemoryIndexManager implements MemorySearchManager {
       ? await this.searchVector(queryVec, candidates).catch(() => [])
       : [];
 
+    let results: MemorySearchResult[];
     if (!hybrid.enabled) {
-      return vectorResults.filter((entry) => entry.score >= minScore).slice(0, maxResults);
+      results = vectorResults.filter((entry) => entry.score >= minScore).slice(0, maxResults);
+    } else {
+      const merged = this.mergeHybridResults({
+        vector: vectorResults,
+        keyword: keywordResults,
+        vectorWeight: hybrid.vectorWeight,
+        textWeight: hybrid.textWeight,
+      });
+      results = merged.filter((entry) => entry.score >= minScore).slice(0, maxResults);
     }
 
-    const merged = this.mergeHybridResults({
-      vector: vectorResults,
-      keyword: keywordResults,
-      vectorWeight: hybrid.vectorWeight,
-      textWeight: hybrid.textWeight,
-    });
+    // Phase 3: record access hits for tiering
+    const hitIds = [
+      ...vectorResults
+        .filter((r) => results.some((res) => res.path === r.path && res.startLine === r.startLine))
+        .map((r) => r.id),
+      ...keywordResults
+        .filter((r) => results.some((res) => res.path === r.path && res.startLine === r.startLine))
+        .map((r) => r.id),
+    ];
+    const uniqueIds = [...new Set(hitIds)];
+    if (uniqueIds.length > 0) {
+      try {
+        recordAccessHits({ db: this.db, chunkIds: uniqueIds });
+      } catch {
+        // best-effort
+      }
+    }
 
-    return merged.filter((entry) => entry.score >= minScore).slice(0, maxResults);
+    return results;
   }
 
   private async searchVector(

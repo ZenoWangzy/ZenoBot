@@ -9,6 +9,8 @@ import { resolveHeartbeatPrompt } from "../../../auto-reply/heartbeat.js";
 import { resolveChannelCapabilities } from "../../../config/channel-capabilities.js";
 import { getMachineDisplayName } from "../../../infra/machine-name.js";
 import { MAX_IMAGE_BYTES } from "../../../media/constants.js";
+import { getMemorySearchManager } from "../../../memory/index.js";
+import { preloadMemory, formatPreloadedMemorySection } from "../../../memory/preloader.js";
 import { getGlobalHookRunner } from "../../../plugins/hook-runner-global.js";
 import { isSubagentSessionKey, normalizeAgentId } from "../../../routing/session-key.js";
 import { resolveSignalReactionLevel } from "../../../signal/reaction-level.js";
@@ -29,6 +31,7 @@ import {
 } from "../../channel-tools.js";
 import { resolveOpenClawDocsPath } from "../../docs-path.js";
 import { isTimeoutError } from "../../failover-error.js";
+import { resolveMemorySearchConfig } from "../../memory-search.js";
 import { resolveModelAuthMode } from "../../model-auth.js";
 import { resolveDefaultModelForAgent } from "../../model-selection.js";
 import { createOllamaStreamFn, OLLAMA_NATIVE_BASE_URL } from "../../ollama-stream.js";
@@ -839,6 +842,34 @@ export async function runEmbeddedAttempt(
             }
           } catch (hookErr) {
             log.warn(`before_agent_start hook failed: ${String(hookErr)}`);
+          }
+        }
+
+        // Preload relevant memory based on user message (before prompt send)
+        const memSearchCfg = params.config
+          ? resolveMemorySearchConfig(params.config, sessionAgentId)
+          : null;
+        if (memSearchCfg?.preload?.enabled) {
+          try {
+            const { manager } = await getMemorySearchManager({
+              cfg: params.config!,
+              agentId: sessionAgentId,
+            });
+            const preloaded = await preloadMemory({
+              userMessage: effectivePrompt,
+              sessionKey: params.sessionKey,
+              manager,
+              config: memSearchCfg.preload,
+            });
+            if (preloaded.length > 0) {
+              const memSection = formatPreloadedMemorySection(preloaded);
+              effectivePrompt = `${memSection}\n\n${effectivePrompt}`;
+              log.debug(
+                `memory preload: injected ${preloaded.length} snippets (${preloaded.reduce((s, m) => s + m.tokens, 0)} tokens)`,
+              );
+            }
+          } catch (preloadErr) {
+            log.debug(`memory preload failed (non-fatal): ${String(preloadErr)}`);
           }
         }
 

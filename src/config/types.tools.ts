@@ -321,6 +321,19 @@ export type MemorySearchConfig = {
     /** Optional cap on cached embeddings (best-effort). */
     maxEntries?: number;
   };
+  /** Predictive memory preloading (auto-inject relevant memory into system prompt). */
+  preload?: {
+    /** Enable memory preloading (default: false). */
+    enabled?: boolean;
+    /** Max tokens to allocate for preloaded memory (default: 4000). */
+    maxTokens?: number;
+    /** Minimum relevance score for preloaded results (0-1, default: 0.45). */
+    minRelevance?: number;
+    /** Recency boost factor — higher values prefer recent memory (default: 0.3). */
+    recencyBoostFactor?: number;
+    /** Max memory snippets to preload per message (default: 8). */
+    maxResults?: number;
+  };
 };
 
 export type ToolsConfig = {

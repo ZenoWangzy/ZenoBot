@@ -450,6 +450,61 @@ export async function dispatchReplyFromConfig(params: {
   } catch (err) {
     recordProcessed("error", { error: String(err) });
     markIdle("message_error");
-    throw err;
+
+    // Send error message to user via dispatcher
+    const errorText = formatErrorForUser(err);
+    const errorPayload: ReplyPayload = { text: errorText };
+
+    let queuedFinal = false;
+    let routedFinalCount = 0;
+    if (shouldRouteToOriginating && originatingChannel && originatingTo) {
+      const result = await routeReply({
+        payload: errorPayload,
+        channel: originatingChannel,
+        to: originatingTo,
+        sessionKey: ctx.SessionKey,
+        accountId: ctx.AccountId,
+        threadId: ctx.MessageThreadId,
+        cfg,
+      });
+      queuedFinal = result.ok || queuedFinal;
+      if (result.ok) {
+        routedFinalCount += 1;
+      }
+    } else {
+      queuedFinal = dispatcher.sendFinalReply(errorPayload) || false;
+    }
+
+    await dispatcher.waitForIdle();
+    const counts = dispatcher.getQueuedCounts();
+    counts.final += routedFinalCount;
+    return { queuedFinal, counts };
   }
+}
+
+/**
+ * Format error message for display to users.
+ * Extracts API error details when available.
+ */
+function formatErrorForUser(err: unknown): string {
+  const errStr = String(err);
+
+  // Parse API errors
+  if (errStr.includes("429")) {
+    if (errStr.includes("余额不足") || errStr.includes("insufficient") || errStr.includes("balance")) {
+      return `❌ API 错误: 余额不足或配额已用完 (429)\n\n请检查您的 API 账户余额或资源包。`;
+    }
+    return `❌ API 错误: 请求过于频繁 (429)\n\n请稍后再试或增加配额。`;
+  }
+
+  if (errStr.includes("401") || errStr.includes("403")) {
+    return `❌ API 错误: 认证失败\n\n请检查您的 API Key 是否正确。`;
+  }
+
+  if (errStr.includes("timeout") || errStr.includes("timed out")) {
+    return `❌ 请求超时\n\nAPI 响应时间过长，请稍后重试。`;
+  }
+
+  // Default error message with original error details
+  return `❌ 处理请求时出错\n\n错误信息: ${errStr.slice(0, 500)}`;
 }

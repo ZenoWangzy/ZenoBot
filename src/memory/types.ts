@@ -1,5 +1,8 @@
 export type MemorySource = "memory" | "sessions";
 
+export type MemoryTierLabel = "hot" | "warm" | "cold";
+export type MemoryImportanceLabel = "high" | "medium" | "low";
+
 export type MemorySearchResult = {
   path: string;
   startLine: number;
@@ -8,6 +11,10 @@ export type MemorySearchResult = {
   snippet: string;
   source: MemorySource;
   citation?: string;
+  /** Memory tier (populated when tiering is enabled). */
+  tier?: MemoryTierLabel;
+  /** Memory importance (populated when tiering is enabled). */
+  importance?: MemoryImportanceLabel;
 };
 
 export type MemoryEmbeddingProbeResult = {

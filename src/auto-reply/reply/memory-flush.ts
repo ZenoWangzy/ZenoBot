@@ -17,6 +17,8 @@ export const DEFAULT_MEMORY_FLUSH_PROMPT = [
 export const DEFAULT_MEMORY_FLUSH_SYSTEM_PROMPT = [
   "Pre-compaction memory flush turn.",
   "The session is near auto-compaction; capture durable memories to disk.",
+  "Use structured format with tags/importance/category metadata.",
+  "Focus on decisions, action items, and preferences. Skip trivial content.",
   `You may reply, but usually ${SILENT_REPLY_TOKEN} is correct.`,
 ].join(" ");
 
