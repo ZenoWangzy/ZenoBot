@@ -7,6 +7,7 @@ import { colorize, isRich, theme } from "../terminal/theme.js";
 import { formatGatewayServiceDescription, resolveGatewayWindowsTaskName } from "./constants.js";
 import { resolveGatewayStateDir } from "./paths.js";
 import { parseKeyValueOutput } from "./runtime-parse.js";
+import { buildWatchdogScript, resolveWatchdogScriptPath } from "./watchdog.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -285,43 +286,47 @@ export async function installScheduledTask({
   description?: string;
 }): Promise<{ scriptPath: string }> {
   await assertSchtasksAvailable();
-  const scriptPath = resolveTaskScriptPath(env);
-  await fs.mkdir(path.dirname(scriptPath), { recursive: true });
+
+  // Use watchdog script instead of direct gateway script
+  const watchdogScriptPath = resolveWatchdogScriptPath(env);
+  await fs.mkdir(path.dirname(watchdogScriptPath), { recursive: true });
+
   const taskDescription =
     description ??
     formatGatewayServiceDescription({
       profile: env.OPENCLAW_PROFILE,
       version: environment?.OPENCLAW_SERVICE_VERSION ?? env.OPENCLAW_SERVICE_VERSION,
     });
-  const script = buildTaskScript({
-    description: taskDescription,
+
+  // Build watchdog script that checks port before starting
+  const watchdogScript = buildWatchdogScript({
     programArguments,
     workingDirectory,
     environment,
   });
-  await fs.writeFile(scriptPath, script, "utf8");
+  await fs.writeFile(watchdogScriptPath, watchdogScript, "utf8");
 
   const taskName = resolveTaskName(env);
-  const quotedScript = quoteCmdArg(scriptPath);
-  const baseArgs = [
-    "/Create",
-    "/F",
-    "/SC",
-    "ONLOGON",
-    "/RL",
-    "LIMITED",
-    "/TN",
-    taskName,
-    "/TR",
-    quotedScript,
-  ];
   const taskUser = resolveTaskUser(env);
-  let create = await execSchtasks(
-    taskUser ? [...baseArgs, "/RU", taskUser, "/NP", "/IT"] : baseArgs,
-  );
+
+  // Use watchdog task args with repeat interval
+  const baseArgs = buildWatchdogTaskArgs({
+    taskName,
+    scriptPath: watchdogScriptPath,
+    taskUser,
+  });
+
+  let create = await execSchtasks(baseArgs);
   if (create.code !== 0 && taskUser) {
-    create = await execSchtasks(baseArgs);
+    // Retry without user specification
+    const fallbackArgs = buildWatchdogTaskArgs({
+      taskName,
+      scriptPath: watchdogScriptPath,
+      taskUser: null,
+    });
+    create = await execSchtasks(fallbackArgs);
   }
+
   if (create.code !== 0) {
     const detail = create.stderr || create.stdout;
     const hint = /access is denied/i.test(detail)
@@ -330,12 +335,15 @@ export async function installScheduledTask({
     throw new Error(`schtasks create failed: ${detail}${hint}`.trim());
   }
 
+  // Run the task immediately
   await execSchtasks(["/Run", "/TN", taskName]);
-  // Ensure we don't end up writing to a clack spinner line (wizards show progress without a newline).
+
   stdout.write("\n");
   stdout.write(`${formatLine("Installed Scheduled Task", taskName)}\n`);
-  stdout.write(`${formatLine("Task script", scriptPath)}\n`);
-  return { scriptPath };
+  stdout.write(`${formatLine("Task script", watchdogScriptPath)}\n`);
+  stdout.write(`${formatLine("Repeat interval", "1 minute")}\n`);
+
+  return { scriptPath: watchdogScriptPath };
 }
 
 export async function uninstallScheduledTask({
