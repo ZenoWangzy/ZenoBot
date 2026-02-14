@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { parseSchtasksQuery, readScheduledTaskCommand, resolveTaskScriptPath } from "./schtasks.js";
+import { parseSchtasksQuery, readScheduledTaskCommand, resolveTaskScriptPath, buildWatchdogTaskArgs } from "./schtasks.js";
 
 describe("schtasks runtime parsing", () => {
   it("parses status and last run info", () => {
@@ -303,5 +303,44 @@ describe("readScheduledTaskCommand", () => {
     } finally {
       await fs.rm(tmpDir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("buildWatchdogTaskArgs", () => {
+  it("includes repeat interval for watchdog task", () => {
+    const args = buildWatchdogTaskArgs({
+      taskName: "OpenClaw Gateway",
+      scriptPath: "C:\\Users\\test\\.openclaw\\gateway-watchdog.cmd",
+    });
+
+    expect(args).toContain("/SC");
+    expect(args).toContain("ONLOGON");
+    expect(args).toContain("/RI");
+    expect(args).toContain("1"); // 1 minute repeat
+    expect(args).toContain("/TN");
+    expect(args).toContain("OpenClaw Gateway");
+  });
+
+  it("includes task user when provided", () => {
+    const args = buildWatchdogTaskArgs({
+      taskName: "OpenClaw Gateway",
+      scriptPath: "C:\\Users\\test\\.openclaw\\gateway-watchdog.cmd",
+      taskUser: "DOMAIN\\user",
+    });
+
+    expect(args).toContain("/RU");
+    expect(args).toContain("DOMAIN\\user");
+    expect(args).toContain("/NP");
+    expect(args).toContain("/IT");
+  });
+
+  it("quotes script path with spaces", () => {
+    const args = buildWatchdogTaskArgs({
+      taskName: "OpenClaw Gateway",
+      scriptPath: "C:\\Program Files\\openclaw\\gateway-watchdog.cmd",
+    });
+
+    expect(args).toContain("/TR");
+    expect(args.some((arg) => arg.includes("Program Files"))).toBe(true);
   });
 });

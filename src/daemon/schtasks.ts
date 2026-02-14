@@ -40,6 +40,40 @@ function quoteCmdArg(value: string): string {
   return `"${value.replace(/"/g, '\\"')}"`;
 }
 
+/**
+ * Build schtasks arguments for watchdog-style task with repeat interval.
+ * This creates a task that runs at login and repeats every 1 minute.
+ */
+export function buildWatchdogTaskArgs(params: {
+  taskName: string;
+  scriptPath: string;
+  taskUser?: string | null;
+}): string[] {
+  const { taskName, scriptPath, taskUser } = params;
+  const quotedScript = quoteCmdArg(scriptPath);
+
+  const baseArgs = [
+    "/Create",
+    "/F",
+    "/SC",
+    "ONLOGON",
+    "/RL",
+    "LIMITED",
+    "/RI",
+    "1", // Repeat every 1 minute
+    "/TN",
+    taskName,
+    "/TR",
+    quotedScript,
+  ];
+
+  if (taskUser) {
+    return [...baseArgs, "/RU", taskUser, "/NP", "/IT"];
+  }
+
+  return baseArgs;
+}
+
 function resolveTaskUser(env: Record<string, string | undefined>): string | null {
   const username = env.USERNAME || env.USER || env.LOGNAME;
   if (!username) {
