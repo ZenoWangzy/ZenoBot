@@ -1,3 +1,49 @@
+/**
+ * Browser connection mode.
+ * - auto: Try CDP direct first, fallback to extension relay (default)
+ * - cdp-direct: Only use CDP direct connection
+ * - extension-relay: Only use Chrome extension relay
+ */
+export type BrowserConnectionMode = "auto" | "cdp-direct" | "extension-relay";
+
+/**
+ * CDP (Chrome DevTools Protocol) configuration.
+ */
+export type BrowserCdpConfig = {
+  /** CDP port for debugging. Default: 9222 */
+  port?: number;
+  /** Auto-launch Chrome with CDP enabled if not running. Default: true */
+  autoLaunch?: boolean;
+  /** Directory for Chrome profile (persistent login state). Default: ~/.openclaw/browser-profiles/default */
+  profileDir?: string;
+};
+
+/**
+ * Connection watchdog configuration for auto-reconnect.
+ */
+export type BrowserWatchdogConfig = {
+  /** Enable connection watchdog for auto-reconnect. Default: true */
+  enabled?: boolean;
+  /** Interval between connection checks (ms). Default: 5000 */
+  checkInterval?: number;
+  /** Max consecutive failures before restarting browser. Default: 3 */
+  maxRetries?: number;
+  /** Auto-restart browser after max failures. Default: true */
+  autoRestart?: boolean;
+};
+
+/**
+ * Timeout configuration for browser operations.
+ */
+export type BrowserTimeoutConfig = {
+  /** Connection timeout (ms). Default: 60000 */
+  connect?: number;
+  /** Single operation timeout (ms). Default: 30000 */
+  operation?: number;
+  /** Idle timeout before disconnecting (ms). Default: 300000 (5 min) */
+  idle?: number;
+};
+
 export type BrowserProfileConfig = {
   /** CDP port for this profile. Allocated once at creation, persisted permanently. */
   cdpPort?: number;
@@ -38,4 +84,12 @@ export type BrowserConfig = {
   profiles?: Record<string, BrowserProfileConfig>;
   /** Default snapshot options (applied by the browser tool/CLI when unset). */
   snapshotDefaults?: BrowserSnapshotDefaults;
+  /** Connection mode: auto (CDP first), cdp-direct, or extension-relay. Default: auto */
+  mode?: BrowserConnectionMode;
+  /** CDP (Chrome DevTools Protocol) configuration. */
+  cdp?: BrowserCdpConfig;
+  /** Connection watchdog configuration for auto-reconnect. */
+  watchdog?: BrowserWatchdogConfig;
+  /** Timeout configuration for browser operations. */
+  timeouts?: BrowserTimeoutConfig;
 };

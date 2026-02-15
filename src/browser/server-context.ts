@@ -11,6 +11,7 @@ import type {
   ProfileStatus,
 } from "./server-context.types.js";
 import { createConfigIO, loadConfig } from "../config/config.js";
+import type { BrowserConnectionMode } from "../config/types.browser.js";
 import { appendCdpPath, createTargetViaCdp, getHeadersWithAuth, normalizeCdpWsUrl } from "./cdp.js";
 import {
   isChromeCdpReady,
@@ -27,6 +28,18 @@ import {
 import { getPwAiModule } from "./pw-ai-module.js";
 import { resolveTargetIdFromTabs } from "./target-id.js";
 import { movePathToTrash } from "./trash.js";
+import {
+  getWatchdog,
+  getRecovery,
+  stopWatchdog,
+  connectWithFallback,
+  cleanupAutoReconnect,
+  setManagedChromeProcess,
+  getManagedChromeProcess,
+  saveSessionStateForRecovery,
+  restoreSessionStateAfterRecovery,
+} from "./pw-session.js";
+import { detectExistingCDP, launchWithCDP, type ChromeProcess } from "./launcher.js";
 
 export type {
   BrowserRouteContext,

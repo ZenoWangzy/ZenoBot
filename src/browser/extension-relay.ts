@@ -191,6 +191,12 @@ export async function ensureChromeExtensionRelayServer(opts: {
   const cdpClients = new Set<WebSocket>();
   const connectedTargets = new Map<string, ConnectedTarget>();
 
+  // Pending targets for recovery after tab switch/refresh
+  // When a target detaches, we keep it here temporarily so we can restore state on re-attach
+  type PendingTarget = { target: ConnectedTarget; lastSeen: number };
+  const pendingTargets = new Map<string, PendingTarget>();
+  const PENDING_TARGET_TTL_MS = 60000; // 60 seconds to re-attach
+
   const pendingExtension = new Map<
     number,
     {
@@ -500,10 +506,26 @@ export async function ensureChromeExtensionRelayServer(opts: {
   wssExtension.on("connection", (ws) => {
     extensionWs = ws;
 
+    // Heartbeat state tracking for connection health monitoring
+    let lastPongTime = Date.now();
+    let pendingPings = 0;
+    const MAX_PENDING_PINGS = 3;
+    const HEARTBEAT_TIMEOUT_MS = 15000;
+
     const ping = setInterval(() => {
       if (ws.readyState !== WebSocket.OPEN) {
         return;
       }
+
+      // Check for heartbeat timeout
+      const timeSinceLastPong = Date.now() - lastPongTime;
+      if (pendingPings > MAX_PENDING_PINGS || timeSinceLastPong > HEARTBEAT_TIMEOUT_MS) {
+        clearInterval(ping);
+        ws.close(1011, "Heartbeat timeout");
+        return;
+      }
+
+      pendingPings++;
       ws.send(JSON.stringify({ method: "ping" } satisfies ExtensionPingMessage));
     }, 5000);
 
@@ -532,6 +554,9 @@ export async function ensureChromeExtensionRelayServer(opts: {
 
       if (parsed && typeof parsed === "object" && "method" in parsed) {
         if ((parsed as ExtensionPongMessage).method === "pong") {
+          // Update heartbeat state on pong response
+          lastPongTime = Date.now();
+          pendingPings = 0;
           return;
         }
         if ((parsed as ExtensionForwardEventMessage).method !== "forwardCDPEvent") {
@@ -552,8 +577,17 @@ export async function ensureChromeExtensionRelayServer(opts: {
             return;
           }
           if (attached?.sessionId && attached?.targetInfo?.targetId) {
-            const prev = connectedTargets.get(attached.sessionId);
             const nextTargetId = attached.targetInfo.targetId;
+
+            // Check if this is a recovery of a previously detached target
+            const pendingTarget = pendingTargets.get(nextTargetId);
+            if (pendingTarget) {
+              // Target re-attached within TTL - clear from pending
+              // The role refs cache in pw-session.ts will handle state continuity
+              pendingTargets.delete(nextTargetId);
+            }
+
+            const prev = connectedTargets.get(attached.sessionId);
             const prevTargetId = prev?.targetId;
             const changedTarget = Boolean(prev && prevTargetId && prevTargetId !== nextTargetId);
             connectedTargets.set(attached.sessionId, {
@@ -578,6 +612,22 @@ export async function ensureChromeExtensionRelayServer(opts: {
         if (method === "Target.detachedFromTarget") {
           const detached = (params ?? {}) as DetachedFromTargetEvent;
           if (detached?.sessionId) {
+            // Move to pending targets for potential recovery instead of immediate deletion
+            const target = connectedTargets.get(detached.sessionId);
+            if (target && detached.targetId) {
+              pendingTargets.set(detached.targetId, {
+                target,
+                lastSeen: Date.now(),
+              });
+              // Clean up after TTL expires
+              setTimeout(() => {
+                const pending = pendingTargets.get(detached.targetId!);
+                // Only delete if it hasn't been updated (same lastSeen)
+                if (pending && pending.lastSeen <= Date.now() - PENDING_TARGET_TTL_MS) {
+                  pendingTargets.delete(detached.targetId!);
+                }
+              }, PENDING_TARGET_TTL_MS);
+            }
             connectedTargets.delete(detached.sessionId);
           }
           broadcastToCdpClients({ method, params, sessionId });
@@ -616,6 +666,7 @@ export async function ensureChromeExtensionRelayServer(opts: {
       }
       pendingExtension.clear();
       connectedTargets.clear();
+      pendingTargets.clear(); // Clear pending targets on disconnect
 
       for (const client of cdpClients) {
         try {

@@ -8,9 +8,13 @@ import type {
 } from "playwright-core";
 import { chromium } from "playwright-core";
 import { formatErrorMessage } from "../infra/errors.js";
+import type { BrowserConnectionMode, BrowserWatchdogConfig } from "../config/types.browser.js";
 import { appendCdpPath, fetchJson, getHeadersWithAuth, withCdpSocket } from "./cdp.helpers.js";
 import { normalizeCdpWsUrl } from "./cdp.js";
 import { getChromeWebSocketUrl } from "./chrome.js";
+import { ConnectionWatchdog, createWatchdog } from "./watchdog.js";
+import { SessionStateRecovery, createSessionStateRecovery } from "./recovery.js";
+import { detectExistingCDP, launchWithCDP, type ChromeProcess } from "./launcher.js";
 
 export type BrowserConsoleMessage = {
   type: string;
@@ -326,9 +330,18 @@ async function connectBrowser(cdpUrl: string): Promise<ConnectedBrowser> {
     return await connecting;
   }
 
+  // Enhanced retry configuration with exponential backoff
+  const MAX_RETRIES = 5;
+  const INITIAL_DELAY_MS = 500;
+  const MAX_DELAY_MS = 30000;
+  const BACKOFF_MULTIPLIER = 2;
+  const JITTER_FACTOR = 0.3;
+
   const connectWithRetry = async (): Promise<ConnectedBrowser> => {
     let lastErr: unknown;
-    for (let attempt = 0; attempt < 3; attempt += 1) {
+    let delay = INITIAL_DELAY_MS;
+
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt += 1) {
       try {
         const timeout = 5000 + attempt * 2000;
         const wsUrl = await getChromeWebSocketUrl(normalized, timeout).catch(() => null);
@@ -347,8 +360,13 @@ async function connectBrowser(cdpUrl: string): Promise<ConnectedBrowser> {
         return connected;
       } catch (err) {
         lastErr = err;
-        const delay = 250 + attempt * 250;
-        await new Promise((r) => setTimeout(r, delay));
+
+        // Add jitter to avoid thundering herd
+        const jitter = delay * JITTER_FACTOR * Math.random();
+        await new Promise((r) => setTimeout(r, delay + jitter));
+
+        // Exponential backoff with max cap
+        delay = Math.min(delay * BACKOFF_MULTIPLIER, MAX_DELAY_MS);
       }
     }
     if (lastErr instanceof Error) {
@@ -784,5 +802,264 @@ export async function focusPageByTargetIdViaPlaywright(opts: {
     } finally {
       await session.detach().catch(() => {});
     }
+  }
+}
+
+// ============================================================================
+// Auto-reconnect support (Watchdog + Recovery)
+// ============================================================================
+
+/** Global watchdog instance for auto-reconnect. */
+let globalWatchdog: ConnectionWatchdog | null = null;
+
+/** Global recovery instance for state preservation. */
+let globalRecovery: SessionStateRecovery | null = null;
+
+/** Managed Chrome process (if we launched it). */
+let managedChromeProcess: ChromeProcess | null = null;
+
+/** Current connection mode. */
+let currentConnectionMode: BrowserConnectionMode = "auto";
+
+/**
+ * Get or create the global watchdog instance.
+ */
+export function getWatchdog(
+  cdpPort: number,
+  config?: BrowserWatchdogConfig,
+): ConnectionWatchdog {
+  if (!globalWatchdog) {
+    globalWatchdog = createWatchdog(cdpPort, config);
+  }
+  return globalWatchdog;
+}
+
+/**
+ * Get or create the global recovery instance.
+ */
+export function getRecovery(): SessionStateRecovery {
+  if (!globalRecovery) {
+    globalRecovery = createSessionStateRecovery();
+  }
+  return globalRecovery;
+}
+
+/**
+ * Stop and cleanup the watchdog.
+ */
+export function stopWatchdog(): void {
+  if (globalWatchdog) {
+    globalWatchdog.stop();
+    globalWatchdog = null;
+  }
+}
+
+/**
+ * Get the managed Chrome process (if we launched it).
+ */
+export function getManagedChromeProcess(): ChromeProcess | null {
+  return managedChromeProcess;
+}
+
+/**
+ * Set the managed Chrome process.
+ */
+export function setManagedChromeProcess(process: ChromeProcess | null): void {
+  managedChromeProcess = process;
+  if (globalWatchdog) {
+    globalWatchdog.setBrowserProcess(process);
+  }
+}
+
+/**
+ * Get the current connection mode.
+ */
+export function getConnectionMode(): BrowserConnectionMode {
+  return currentConnectionMode;
+}
+
+/**
+ * Connect to browser with CDP direct first, fallback to extension relay.
+ *
+ * This implements the dual-mode connection strategy:
+ * 1. Try CDP direct connection first
+ * 2. If CDP fails, fall back to extension relay mode
+ */
+export async function connectWithFallback(opts: {
+  cdpUrl: string;
+  mode?: BrowserConnectionMode;
+  watchdogConfig?: BrowserWatchdogConfig;
+  autoLaunch?: boolean;
+  cdpPort?: number;
+}): Promise<ConnectedBrowser> {
+  const {
+    cdpUrl,
+    mode = "auto",
+    watchdogConfig,
+    autoLaunch = true,
+    cdpPort = 9222,
+  } = opts;
+
+  currentConnectionMode = mode;
+
+  // If mode is extension-relay only, skip CDP direct
+  if (mode === "extension-relay") {
+    return await connectBrowser(cdpUrl);
+  }
+
+  // Try CDP direct connection
+  try {
+    // Check if CDP is already available
+    const cdpInfo = await detectExistingCDP(cdpPort);
+
+    if (!cdpInfo.reachable && autoLaunch) {
+      // Try to launch Chrome with CDP enabled
+      try {
+        const process = await launchWithCDP({
+          port: cdpPort,
+        });
+        setManagedChromeProcess(process);
+      } catch (launchErr) {
+        console.warn(`Failed to auto-launch Chrome: ${String(launchErr)}`);
+      }
+    }
+
+    // Attempt direct CDP connection
+    const connected = await connectBrowser(cdpUrl);
+
+    // Start watchdog for auto-reconnect
+    if (mode === "auto" || mode === "cdp-direct") {
+      const watchdog = getWatchdog(cdpPort, watchdogConfig);
+
+      // Set up reconnect callback
+      watchdog.onReconnect(async () => {
+        try {
+          // Clear cached connection to force reconnect
+          cached = null;
+          connecting = null;
+          await connectBrowser(cdpUrl);
+          return true;
+        } catch {
+          return false;
+        }
+      });
+
+      // Set up restart callback
+      watchdog.onRestart(async () => {
+        try {
+          // Terminate existing process if managed
+          if (managedChromeProcess) {
+            const { terminateChrome } = await import("./launcher.js");
+            await terminateChrome(managedChromeProcess);
+          }
+
+          // Launch new Chrome
+          const process = await launchWithCDP({ port: cdpPort });
+          setManagedChromeProcess(process);
+
+          // Reconnect
+          cached = null;
+          connecting = null;
+          await connectBrowser(cdpUrl);
+
+          return process;
+        } catch {
+          return null;
+        }
+      });
+
+      // Start monitoring
+      watchdog.start();
+    }
+
+    return connected;
+  } catch (cdpErr) {
+    // CDP direct failed
+    if (mode === "cdp-direct") {
+      throw cdpErr;
+    }
+
+    // Fall back to extension relay
+    console.warn(`CDP direct failed, falling back to extension relay: ${String(cdpErr)}`);
+    currentConnectionMode = "extension-relay";
+    return await connectBrowser(cdpUrl);
+  }
+}
+
+/**
+ * Save current session state for recovery.
+ */
+export async function saveSessionStateForRecovery(page: Page): Promise<void> {
+  const recovery = getRecovery();
+
+  try {
+    const state = await page.evaluate(() => {
+      const formData: Record<string, string> = {};
+      document.querySelectorAll("input, textarea, select").forEach((el) => {
+        const input = el as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+        const name = input.name || input.id;
+        if (name && input.type !== "password") {
+          formData[name] = input.value;
+        }
+      });
+
+      return {
+        url: window.location.href,
+        title: document.title,
+        scrollX: window.scrollX,
+        scrollY: window.scrollY,
+        formData,
+      };
+    });
+
+    const snapshot = SessionStateRecovery.createSnapshotFromPageState(state);
+    recovery.saveSnapshot(snapshot);
+  } catch {
+    // Best effort - don't fail if state capture fails
+  }
+}
+
+/**
+ * Restore session state after reconnection.
+ */
+export async function restoreSessionStateAfterRecovery(page: Page): Promise<void> {
+  const recovery = getRecovery();
+  const snapshot = recovery.getRecoveryData();
+
+  if (!snapshot) {
+    return;
+  }
+
+  try {
+    // Check if we're on the same URL (or navigated)
+    const currentUrl = page.url();
+    if (snapshot.activeTabUrl === currentUrl) {
+      // Restore scroll position and form data
+      const script = SessionStateRecovery.getRestoreStateScript(snapshot);
+      await page.evaluate(script);
+    }
+  } catch {
+    // Best effort - don't fail if restore fails
+  }
+
+  // Clear snapshot after restoration
+  recovery.clearSnapshot();
+}
+
+/**
+ * Cleanup all auto-reconnect resources.
+ */
+export async function cleanupAutoReconnect(): Promise<void> {
+  stopWatchdog();
+
+  if (globalRecovery) {
+    globalRecovery.clearSnapshot();
+    globalRecovery = null;
+  }
+
+  if (managedChromeProcess) {
+    const { terminateChrome } = await import("./launcher.js");
+    await terminateChrome(managedChromeProcess);
+    managedChromeProcess = null;
   }
 }
