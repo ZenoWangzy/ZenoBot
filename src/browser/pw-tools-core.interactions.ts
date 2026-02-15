@@ -1,4 +1,5 @@
 import type { BrowserFormField } from "./client-actions-core.js";
+import { withBrowserRetry } from "./operation-retry.js";
 import {
   ensurePageState,
   forceDisconnectPlaywrightForTarget,
@@ -7,6 +8,28 @@ import {
   restoreRoleRefsForTarget,
 } from "./pw-session.js";
 import { normalizeTimeoutMs, requireRef, toAIFriendlyError } from "./pw-tools-core.shared.js";
+
+/**
+ * Helper to wrap browser operations with automatic retry on transient failures.
+ * Uses forceDisconnectPlaywrightForTarget to clear cache on connection errors.
+ */
+function withBrowserRetryAndCache<T>(
+  cdpUrl: string,
+  targetId: string | undefined,
+  operation: () => Promise<T>,
+  operationName?: string
+): Promise<T> {
+  return withBrowserRetry(operation, {
+    operationName,
+    clearBrowserCache: () => {
+      void forceDisconnectPlaywrightForTarget({
+        cdpUrl,
+        targetId,
+        reason: "connection error, clearing cache for reconnect",
+      }).catch(() => {});
+    },
+  });
+}
 
 export async function highlightViaPlaywright(opts: {
   cdpUrl: string;
@@ -33,32 +56,34 @@ export async function clickViaPlaywright(opts: {
   modifiers?: Array<"Alt" | "Control" | "ControlOrMeta" | "Meta" | "Shift">;
   timeoutMs?: number;
 }): Promise<void> {
-  const page = await getPageForTargetId({
-    cdpUrl: opts.cdpUrl,
-    targetId: opts.targetId,
-  });
-  ensurePageState(page);
-  restoreRoleRefsForTarget({ cdpUrl: opts.cdpUrl, targetId: opts.targetId, page });
   const ref = requireRef(opts.ref);
-  const locator = refLocator(page, ref);
-  const timeout = Math.max(500, Math.min(60_000, Math.floor(opts.timeoutMs ?? 8000)));
-  try {
-    if (opts.doubleClick) {
-      await locator.dblclick({
-        timeout,
-        button: opts.button,
-        modifiers: opts.modifiers,
-      });
-    } else {
-      await locator.click({
-        timeout,
-        button: opts.button,
-        modifiers: opts.modifiers,
-      });
+  await withBrowserRetryAndCache(opts.cdpUrl, opts.targetId, async () => {
+    const page = await getPageForTargetId({
+      cdpUrl: opts.cdpUrl,
+      targetId: opts.targetId,
+    });
+    ensurePageState(page);
+    restoreRoleRefsForTarget({ cdpUrl: opts.cdpUrl, targetId: opts.targetId, page });
+    const locator = refLocator(page, ref);
+    const timeout = Math.max(500, Math.min(60_000, Math.floor(opts.timeoutMs ?? 8000)));
+    try {
+      if (opts.doubleClick) {
+        await locator.dblclick({
+          timeout,
+          button: opts.button,
+          modifiers: opts.modifiers,
+        });
+      } else {
+        await locator.click({
+          timeout,
+          button: opts.button,
+          modifiers: opts.modifiers,
+        });
+      }
+    } catch (err) {
+      throw toAIFriendlyError(err, ref);
     }
-  } catch (err) {
-    throw toAIFriendlyError(err, ref);
-  }
+  }, "click");
 }
 
 export async function hoverViaPlaywright(opts: {
@@ -68,16 +93,18 @@ export async function hoverViaPlaywright(opts: {
   timeoutMs?: number;
 }): Promise<void> {
   const ref = requireRef(opts.ref);
-  const page = await getPageForTargetId(opts);
-  ensurePageState(page);
-  restoreRoleRefsForTarget({ cdpUrl: opts.cdpUrl, targetId: opts.targetId, page });
-  try {
-    await refLocator(page, ref).hover({
-      timeout: Math.max(500, Math.min(60_000, opts.timeoutMs ?? 8000)),
-    });
-  } catch (err) {
-    throw toAIFriendlyError(err, ref);
-  }
+  await withBrowserRetryAndCache(opts.cdpUrl, opts.targetId, async () => {
+    const page = await getPageForTargetId(opts);
+    ensurePageState(page);
+    restoreRoleRefsForTarget({ cdpUrl: opts.cdpUrl, targetId: opts.targetId, page });
+    try {
+      await refLocator(page, ref).hover({
+        timeout: Math.max(500, Math.min(60_000, opts.timeoutMs ?? 8000)),
+      });
+    } catch (err) {
+      throw toAIFriendlyError(err, ref);
+    }
+  }, "hover");
 }
 
 export async function dragViaPlaywright(opts: {
@@ -92,16 +119,18 @@ export async function dragViaPlaywright(opts: {
   if (!startRef || !endRef) {
     throw new Error("startRef and endRef are required");
   }
-  const page = await getPageForTargetId(opts);
-  ensurePageState(page);
-  restoreRoleRefsForTarget({ cdpUrl: opts.cdpUrl, targetId: opts.targetId, page });
-  try {
-    await refLocator(page, startRef).dragTo(refLocator(page, endRef), {
-      timeout: Math.max(500, Math.min(60_000, opts.timeoutMs ?? 8000)),
-    });
-  } catch (err) {
-    throw toAIFriendlyError(err, `${startRef} -> ${endRef}`);
-  }
+  await withBrowserRetryAndCache(opts.cdpUrl, opts.targetId, async () => {
+    const page = await getPageForTargetId(opts);
+    ensurePageState(page);
+    restoreRoleRefsForTarget({ cdpUrl: opts.cdpUrl, targetId: opts.targetId, page });
+    try {
+      await refLocator(page, startRef).dragTo(refLocator(page, endRef), {
+        timeout: Math.max(500, Math.min(60_000, opts.timeoutMs ?? 8000)),
+      });
+    } catch (err) {
+      throw toAIFriendlyError(err, `${startRef} -> ${endRef}`);
+    }
+  }, "drag");
 }
 
 export async function selectOptionViaPlaywright(opts: {
@@ -115,16 +144,18 @@ export async function selectOptionViaPlaywright(opts: {
   if (!opts.values?.length) {
     throw new Error("values are required");
   }
-  const page = await getPageForTargetId(opts);
-  ensurePageState(page);
-  restoreRoleRefsForTarget({ cdpUrl: opts.cdpUrl, targetId: opts.targetId, page });
-  try {
-    await refLocator(page, ref).selectOption(opts.values, {
-      timeout: Math.max(500, Math.min(60_000, opts.timeoutMs ?? 8000)),
-    });
-  } catch (err) {
-    throw toAIFriendlyError(err, ref);
-  }
+  await withBrowserRetryAndCache(opts.cdpUrl, opts.targetId, async () => {
+    const page = await getPageForTargetId(opts);
+    ensurePageState(page);
+    restoreRoleRefsForTarget({ cdpUrl: opts.cdpUrl, targetId: opts.targetId, page });
+    try {
+      await refLocator(page, ref).selectOption(opts.values, {
+        timeout: Math.max(500, Math.min(60_000, opts.timeoutMs ?? 8000)),
+      });
+    } catch (err) {
+      throw toAIFriendlyError(err, ref);
+    }
+  }, "selectOption");
 }
 
 export async function pressKeyViaPlaywright(opts: {
@@ -137,11 +168,13 @@ export async function pressKeyViaPlaywright(opts: {
   if (!key) {
     throw new Error("key is required");
   }
-  const page = await getPageForTargetId(opts);
-  ensurePageState(page);
-  await page.keyboard.press(key, {
-    delay: Math.max(0, Math.floor(opts.delayMs ?? 0)),
-  });
+  await withBrowserRetryAndCache(opts.cdpUrl, opts.targetId, async () => {
+    const page = await getPageForTargetId(opts);
+    ensurePageState(page);
+    await page.keyboard.press(key, {
+      delay: Math.max(0, Math.floor(opts.delayMs ?? 0)),
+    });
+  }, "pressKey");
 }
 
 export async function typeViaPlaywright(opts: {
@@ -154,25 +187,27 @@ export async function typeViaPlaywright(opts: {
   timeoutMs?: number;
 }): Promise<void> {
   const text = String(opts.text ?? "");
-  const page = await getPageForTargetId(opts);
-  ensurePageState(page);
-  restoreRoleRefsForTarget({ cdpUrl: opts.cdpUrl, targetId: opts.targetId, page });
   const ref = requireRef(opts.ref);
-  const locator = refLocator(page, ref);
-  const timeout = Math.max(500, Math.min(60_000, opts.timeoutMs ?? 8000));
-  try {
-    if (opts.slowly) {
-      await locator.click({ timeout });
-      await locator.type(text, { timeout, delay: 75 });
-    } else {
-      await locator.fill(text, { timeout });
+  await withBrowserRetryAndCache(opts.cdpUrl, opts.targetId, async () => {
+    const page = await getPageForTargetId(opts);
+    ensurePageState(page);
+    restoreRoleRefsForTarget({ cdpUrl: opts.cdpUrl, targetId: opts.targetId, page });
+    const locator = refLocator(page, ref);
+    const timeout = Math.max(500, Math.min(60_000, opts.timeoutMs ?? 8000));
+    try {
+      if (opts.slowly) {
+        await locator.click({ timeout });
+        await locator.type(text, { timeout, delay: 75 });
+      } else {
+        await locator.fill(text, { timeout });
+      }
+      if (opts.submit) {
+        await locator.press("Enter", { timeout });
+      }
+    } catch (err) {
+      throw toAIFriendlyError(err, ref);
     }
-    if (opts.submit) {
-      await locator.press("Enter", { timeout });
-    }
-  } catch (err) {
-    throw toAIFriendlyError(err, ref);
-  }
+  }, "type");
 }
 
 export async function fillFormViaPlaywright(opts: {
