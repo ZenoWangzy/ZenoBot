@@ -7,14 +7,14 @@ import type {
   Response,
 } from "playwright-core";
 import { chromium } from "playwright-core";
-import { formatErrorMessage } from "../infra/errors.js";
 import type { BrowserConnectionMode, BrowserWatchdogConfig } from "../config/types.browser.js";
+import { formatErrorMessage } from "../infra/errors.js";
 import { appendCdpPath, fetchJson, getHeadersWithAuth, withCdpSocket } from "./cdp.helpers.js";
 import { normalizeCdpWsUrl } from "./cdp.js";
 import { getChromeWebSocketUrl } from "./chrome.js";
-import { ConnectionWatchdog, createWatchdog } from "./watchdog.js";
-import { SessionStateRecovery, createSessionStateRecovery } from "./recovery.js";
 import { detectExistingCDP, launchWithCDP, type ChromeProcess } from "./launcher.js";
+import { SessionStateRecovery, createSessionStateRecovery } from "./recovery.js";
+import { ConnectionWatchdog, createWatchdog } from "./watchdog.js";
 
 export type BrowserConsoleMessage = {
   type: string;
@@ -406,12 +406,24 @@ async function findPageByTargetId(
   cdpUrl?: string,
 ): Promise<Page | null> {
   const pages = await getAllPages(browser);
+  let resolvedViaCdp = false;
   // First, try the standard CDP session approach
   for (const page of pages) {
-    const tid = await pageTargetId(page).catch(() => null);
+    let tid: string | null = null;
+    try {
+      tid = await pageTargetId(page);
+      resolvedViaCdp = true;
+    } catch {
+      tid = null;
+    }
     if (tid && tid === targetId) {
       return page;
     }
+  }
+  // Extension relays can block CDP attachment APIs entirely. If that happens and
+  // Playwright only exposes one page, return it as the best available mapping.
+  if (!resolvedViaCdp && pages.length === 1) {
+    return pages[0];
   }
   // If CDP sessions fail (e.g., extension relay blocks Target.attachToBrowserTarget),
   // fall back to URL-based matching using the /json/list endpoint
@@ -824,10 +836,7 @@ let currentConnectionMode: BrowserConnectionMode = "auto";
 /**
  * Get or create the global watchdog instance.
  */
-export function getWatchdog(
-  cdpPort: number,
-  config?: BrowserWatchdogConfig,
-): ConnectionWatchdog {
+export function getWatchdog(cdpPort: number, config?: BrowserWatchdogConfig): ConnectionWatchdog {
   if (!globalWatchdog) {
     globalWatchdog = createWatchdog(cdpPort, config);
   }
@@ -892,13 +901,7 @@ export async function connectWithFallback(opts: {
   autoLaunch?: boolean;
   cdpPort?: number;
 }): Promise<ConnectedBrowser> {
-  const {
-    cdpUrl,
-    mode = "auto",
-    watchdogConfig,
-    autoLaunch = true,
-    cdpPort = 9222,
-  } = opts;
+  const { cdpUrl, mode = "auto", watchdogConfig, autoLaunch = true, cdpPort = 9222 } = opts;
 
   currentConnectionMode = mode;
 
