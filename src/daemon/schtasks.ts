@@ -1,20 +1,12 @@
-import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { promisify } from "node:util";
 import type { GatewayServiceRuntime } from "./service-runtime.js";
-import { colorize, isRich, theme } from "../terminal/theme.js";
-import { resolveGatewayWindowsTaskName } from "./constants.js";
+import { formatGatewayServiceDescription, resolveGatewayWindowsTaskName } from "./constants.js";
+import { formatLine } from "./output.js";
 import { resolveGatewayStateDir } from "./paths.js";
 import { parseKeyValueOutput } from "./runtime-parse.js";
+import { execSchtasks } from "./schtasks-exec.js";
 import { buildWatchdogScript, resolveWatchdogScriptPath } from "./watchdog.js";
-
-const execFileAsync = promisify(execFile);
-
-const formatLine = (label: string, value: string) => {
-  const rich = isRich();
-  return `${colorize(rich, theme.muted, `${label}:`)} ${colorize(rich, theme.command, value)}`;
-};
 
 function resolveTaskName(env: Record<string, string | undefined>): string {
   const override = env.OPENCLAW_WINDOWS_TASK_NAME?.trim();
@@ -204,33 +196,35 @@ export function parseSchtasksQuery(output: string): ScheduledTaskInfo {
   return info;
 }
 
-async function execSchtasks(
-  args: string[],
-): Promise<{ stdout: string; stderr: string; code: number }> {
-  try {
-    const { stdout, stderr } = await execFileAsync("schtasks", args, {
-      encoding: "utf8",
-      windowsHide: true,
-    });
-    return {
-      stdout: String(stdout ?? ""),
-      stderr: String(stderr ?? ""),
-      code: 0,
-    };
-  } catch (error) {
-    const e = error as {
-      stdout?: unknown;
-      stderr?: unknown;
-      code?: unknown;
-      message?: unknown;
-    };
-    return {
-      stdout: typeof e.stdout === "string" ? e.stdout : "",
-      stderr:
-        typeof e.stderr === "string" ? e.stderr : typeof e.message === "string" ? e.message : "",
-      code: typeof e.code === "number" ? e.code : 1,
-    };
+function buildTaskScript({
+  description,
+  programArguments,
+  workingDirectory,
+  environment,
+}: {
+  description?: string;
+  programArguments: string[];
+  workingDirectory?: string;
+  environment?: Record<string, string | undefined>;
+}): string {
+  const lines: string[] = ["@echo off"];
+  if (description?.trim()) {
+    lines.push(`rem ${description.trim()}`);
   }
+  if (workingDirectory) {
+    lines.push(`cd /d ${quoteCmdArg(workingDirectory)}`);
+  }
+  if (environment) {
+    for (const [key, value] of Object.entries(environment)) {
+      if (!value) {
+        continue;
+      }
+      lines.push(`set ${key}=${value}`);
+    }
+  }
+  const command = programArguments.map(quoteCmdArg).join(" ");
+  lines.push(command);
+  return `${lines.join("\r\n")}\r\n`;
 }
 
 async function assertSchtasksAvailable() {
