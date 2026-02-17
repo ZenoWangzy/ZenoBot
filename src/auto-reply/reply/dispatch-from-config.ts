@@ -83,7 +83,7 @@ export async function dispatchReplyFromConfig(params: {
   ctx: FinalizedMsgContext;
   cfg: OpenClawConfig;
   dispatcher: ReplyDispatcher;
-  replyOptions?: Omit<GetReplyOptions, "onToolResult" | "onBlockReply">;
+  replyOptions?: Omit<GetReplyOptions, "onToolResult" | "onBlockReply" | "onProgressUpdate">;
   replyResolver?: typeof getReplyFromConfig;
 }): Promise<DispatchFromConfigResult> {
   const { ctx, cfg, dispatcher } = params;
@@ -343,6 +343,16 @@ export async function dispatchReplyFromConfig(params: {
           };
           return run();
         },
+        onProgressUpdate: (payload: ReplyPayload) => {
+          const run = async () => {
+            if (shouldRouteToOriginating) {
+              await sendPayloadAsync(payload, undefined, false);
+            } else {
+              dispatcher.sendToolResult(payload);
+            }
+          };
+          return run();
+        },
       },
       cfg,
     );
@@ -499,6 +509,17 @@ function formatErrorForUser(err: unknown): string {
 
   if (errStr.includes("401") || errStr.includes("403")) {
     return `❌ API 错误: 认证失败\n\n请检查您的 API Key 是否正确。`;
+  }
+  if (errStr.includes("Can't reach the OpenClaw browser control service")) {
+    return `❌ 浏览器控制服务不可达\n\n请检查浏览器控制服务是否在线，然后重试。`;
+  }
+
+  if (errStr.includes("Unknown ref") && errStr.includes("Run a new snapshot")) {
+    return `❌ 浏览器快照已失效\n\n当前页面引用已过期，请重试（系统会重新抓取快照）。`;
+  }
+
+  if (errStr.toLowerCase().includes("tab not found")) {
+    return `❌ 浏览器标签页不存在\n\n目标标签页可能已关闭，请重试任务。`;
   }
 
   if (errStr.includes("timeout") || errStr.includes("timed out")) {

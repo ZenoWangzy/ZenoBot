@@ -33,6 +33,7 @@ export type GetReplyOptions = {
   onReasoningStream?: (payload: ReplyPayload) => Promise<void> | void;
   onBlockReply?: (payload: ReplyPayload, context?: BlockReplyContext) => Promise<void> | void;
   onToolResult?: (payload: ReplyPayload) => Promise<void> | void;
+  onProgressUpdate?: (payload: ReplyPayload) => Promise<void> | void;
   /** Called when the actual model is selected (including after fallback).
    * Use this to get model/provider/thinkLevel for responsePrefix template interpolation. */
   onModelSelected?: (ctx: ModelSelectedContext) => void;

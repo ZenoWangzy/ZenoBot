@@ -1,0 +1,537 @@
+{
+  "timestamp": "2026-02-15T19:31:37+08:00",
+  "version": "2026.2.13",
+  "project": {
+    "name": "openclaw",
+    "description": "Multi-channel AI gateway with extensible messaging integrations",
+    "license": "MIT",
+    "version": "2026.2.13"
+  },
+  "repository": {
+    "root": "D:\\zeno\\openclaw",
+    "isGitRepo": true,
+    "currentBranch": "main"
+  },
+  "runtime": {
+    "node": ">=22.12.0",
+    "packageManager": "pnpm@10.23.0"
+  },
+  "stats": {
+    "estimatedTotalFiles": 2000,
+    "scannedFiles": 950,
+    "coveragePercent": 48,
+    "languages": {
+      "TypeScript": 58,
+      "Kotlin": 10,
+      "Swift": 10,
+      "Python": 5,
+      "JavaScript": 5,
+      "Shell": 3,
+      "YAML": 2,
+      "Markdown": 5,
+      "Other": 2
+    },
+    "testFiles": 250,
+    "skillCount": 69
+  },
+  "modules": [
+    {
+      "name": "root",
+      "path": "CLAUDE.md",
+      "type": "root",
+      "lastUpdated": "2026-02-15T19:31:37+08:00"
+    },
+    {
+      "name": "src",
+      "path": "src/CLAUDE.md",
+      "type": "core",
+      "language": "TypeScript",
+      "entryPoints": ["src/entry.ts", "src/index.ts"],
+      "description": "核心源代码",
+      "submodules": [
+        {
+          "name": "agents",
+          "path": "src/agents",
+          "description": "AI 代理运行时，包括 Pi Agent 嵌入式运行时、认证配置、工具定义等",
+          "keyFiles": [
+            "src/agents/pi-embedded.ts",
+            "src/agents/pi-embedded-runner/",
+            "src/agents/auth-profiles/",
+            "src/agents/openclaw-tools.ts",
+            "src/agents/tools/"
+          ],
+          "tools": [
+            "browser-tool",
+            "canvas-tool",
+            "cron-tool",
+            "gateway-tool",
+            "image-tool",
+            "message-tool",
+            "nodes-tool",
+            "sessions-list-tool",
+            "sessions-send-tool",
+            "sessions-spawn-tool",
+            "sessions-history-tool",
+            "session-status-tool",
+            "agents-list-tool",
+            "tts-tool",
+            "web-search",
+            "web-fetch"
+          ],
+          "hasTests": true
+        },
+        {
+          "name": "gateway",
+          "path": "src/gateway",
+          "description": "WebSocket 控制平面，处理会话、配置、事件广播等",
+          "keyFiles": [
+            "src/gateway/server.ts",
+            "src/gateway/server-methods/",
+            "src/gateway/protocol/schema/"
+          ],
+          "hasTests": true
+        },
+        {
+          "name": "channels",
+          "path": "src/channels",
+          "description": "消息渠道集成，包括插件系统、消息路由等",
+          "keyFiles": [
+            "src/channels/registry.ts",
+            "src/channels/plugins/"
+          ],
+          "coreChannels": [
+            "telegram",
+            "whatsapp",
+            "discord",
+            "irc",
+            "googlechat",
+            "slack",
+            "signal",
+            "imessage"
+          ],
+          "hasTests": true
+        },
+        {
+          "name": "commands",
+          "path": "src/commands",
+          "description": "CLI 命令实现",
+          "hasTests": true
+        },
+        {
+          "name": "config",
+          "path": "src/config",
+          "description": "配置管理",
+          "hasTests": true
+        },
+        {
+          "name": "browser",
+          "path": "src/browser",
+          "description": "浏览器自动化，基于 Playwright",
+          "hasTests": true
+        },
+        {
+          "name": "cli",
+          "path": "src/cli",
+          "description": "命令行界面框架",
+          "hasTests": true
+        },
+        {
+          "name": "wizard",
+          "path": "src/wizard",
+          "description": "向导流程",
+          "hasTests": true
+        },
+        {
+          "name": "acp",
+          "path": "src/acp",
+          "description": "Agent Client Protocol 实现",
+          "hasTests": true
+        },
+        {
+          "name": "plugin-sdk",
+          "path": "src/plugin-sdk",
+          "description": "插件开发 SDK",
+          "hasTests": true
+        },
+        {
+          "name": "memory",
+          "path": "src/memory",
+          "description": "记忆管理系统，包括向量搜索、嵌入、分层存储等",
+          "keyFiles": [
+            "src/memory/manager.ts",
+            "src/memory/embeddings.ts",
+            "src/memory/qmd-manager.ts"
+          ],
+          "hasTests": true
+        },
+        {
+          "name": "auto-reply",
+          "path": "src/auto-reply",
+          "description": "自动回复系统，处理消息触发、命令解析、代理运行等",
+          "keyFiles": [
+            "src/auto-reply/reply.ts",
+            "src/auto-reply/reply/",
+            "src/auto-reply/model.ts"
+          ],
+          "hasTests": true
+        },
+        {
+          "name": "infra",
+          "path": "src/infra",
+          "description": "基础设施工具和配置"
+        }
+      ]
+    },
+    {
+      "name": "apps",
+      "path": "apps/CLAUDE.md",
+      "type": "applications",
+      "description": "移动和桌面应用",
+      "submodules": [
+        {
+          "name": "android",
+          "path": "apps/android",
+          "language": "Kotlin",
+          "description": "Android 应用，支持 Canvas、语音、相机、位置等",
+          "keyFiles": ["apps/android/app/src/main/java/ai/openclaw/android/MainActivity.kt"],
+          "hasTests": true
+        },
+        {
+          "name": "ios",
+          "path": "apps/ios",
+          "language": "Swift",
+          "description": "iOS 应用，支持 Canvas、语音、Bonjour 配对等"
+        },
+        {
+          "name": "macos",
+          "path": "apps/macos",
+          "language": "Swift",
+          "description": "macOS 菜单栏应用"
+        },
+        {
+          "name": "shared",
+          "path": "apps/shared",
+          "language": "Swift",
+          "description": "iOS/macOS 共享代码"
+        }
+      ]
+    },
+    {
+      "name": "extensions",
+      "path": "extensions/CLAUDE.md",
+      "type": "extensions",
+      "language": "TypeScript",
+      "description": "扩展插件",
+      "submodules": [
+        {
+          "name": "bluebubbles",
+          "path": "extensions/bluebubbles",
+          "description": "BlueBubbles iMessage 集成"
+        },
+        {
+          "name": "discord",
+          "path": "extensions/discord",
+          "description": "Discord 集成"
+        },
+        {
+          "name": "feishu",
+          "path": "extensions/feishu",
+          "description": "飞书集成"
+        },
+        {
+          "name": "googlechat",
+          "path": "extensions/googlechat",
+          "description": "Google Chat 集成"
+        },
+        {
+          "name": "signal",
+          "path": "extensions/signal",
+          "description": "Signal 集成"
+        },
+        {
+          "name": "slack",
+          "path": "extensions/slack",
+          "description": "Slack 集成"
+        },
+        {
+          "name": "telegram",
+          "path": "extensions/telegram",
+          "description": "Telegram 集成"
+        },
+        {
+          "name": "whatsapp",
+          "path": "extensions/whatsapp",
+          "description": "WhatsApp 集成"
+        },
+        {
+          "name": "matrix",
+          "path": "extensions/matrix",
+          "description": "Matrix 集成"
+        },
+        {
+          "name": "irc",
+          "path": "extensions/irc",
+          "description": "IRC 集成"
+        },
+        {
+          "name": "line",
+          "path": "extensions/line",
+          "description": "Line 集成"
+        },
+        {
+          "name": "mattermost",
+          "path": "extensions/mattermost",
+          "description": "Mattermost 集成"
+        },
+        {
+          "name": "msteams",
+          "path": "extensions/msteams",
+          "description": "Microsoft Teams 集成"
+        },
+        {
+          "name": "nostr",
+          "path": "extensions/nostr",
+          "description": "Nostr 集成"
+        },
+        {
+          "name": "twitch",
+          "path": "extensions/twitch",
+          "description": "Twitch 集成"
+        },
+        {
+          "name": "zalo",
+          "path": "extensions/zalo",
+          "description": "Zalo 集成"
+        },
+        {
+          "name": "voice-call",
+          "path": "extensions/voice-call",
+          "description": "语音通话扩展"
+        },
+        {
+          "name": "memory-core",
+          "path": "extensions/memory-core",
+          "description": "记忆核心扩展"
+        },
+        {
+          "name": "copilot-proxy",
+          "path": "extensions/copilot-proxy",
+          "description": "Copilot 代理扩展"
+        }
+      ]
+    },
+    {
+      "name": "skills",
+      "path": "skills/",
+      "type": "skills",
+      "description": "技能插件集合",
+      "count": 69,
+      "examples": [
+        "1password",
+        "apple-notes",
+        "apple-reminders",
+        "bear-notes",
+        "canvas",
+        "discord",
+        "gemini",
+        "github",
+        "gmail",
+        "notion",
+        "obsidian",
+        "slack",
+        "spotify-player",
+        "trello",
+        "weather"
+      ]
+    },
+    {
+      "name": "ui",
+      "path": "ui/CLAUDE.md",
+      "type": "web-ui",
+      "language": "TypeScript",
+      "description": "Web UI 控制界面",
+      "entryPoints": ["ui/src/main.ts"]
+    },
+    {
+      "name": "vendor",
+      "path": "vendor/",
+      "type": "vendor",
+      "description": "第三方依赖",
+      "submodules": [
+        {
+          "name": "a2ui",
+          "path": "vendor/a2ui",
+          "description": "Canvas A2UI 渲染器"
+        }
+      ]
+    },
+    {
+      "name": "docs",
+      "path": "docs/",
+      "type": "documentation",
+      "language": "Markdown",
+      "description": "项目文档",
+      "sections": [
+        "automation/",
+        "channels/",
+        "cli/",
+        "concepts/",
+        "debug/",
+        "diagnostics/",
+        "experiments/",
+        "gateway/"
+      ]
+    },
+    {
+      "name": "scripts",
+      "path": "scripts/",
+      "type": "build-scripts",
+      "language": "Mixed",
+      "description": "构建和部署脚本"
+    }
+  ],
+  "channels": {
+    "core": [
+      "telegram",
+      "whatsapp",
+      "discord",
+      "irc",
+      "googlechat",
+      "slack",
+      "signal",
+      "imessage"
+    ],
+    "extensions": [
+      "bluebubbles",
+      "matrix",
+      "feishu",
+      "line",
+      "mattermost",
+      "msteams",
+      "nextcloud-talk",
+      "nostr",
+      "tlon",
+      "twitch",
+      "zalo",
+      "zalouser"
+    ]
+  },
+  "tools": {
+    "core": [
+      "browser-tool",
+      "canvas-tool",
+      "cron-tool",
+      "gateway-tool",
+      "image-tool",
+      "message-tool",
+      "nodes-tool",
+      "sessions-list-tool",
+      "sessions-send-tool",
+      "sessions-spawn-tool",
+      "sessions-history-tool",
+      "session-status-tool",
+      "agents-list-tool",
+      "tts-tool",
+      "web-search",
+      "web-fetch"
+    ],
+    "platforms": [
+      "discord-actions",
+      "slack-actions",
+      "telegram-actions",
+      "whatsapp-actions"
+    ]
+  },
+  "ignoreRules": [
+    "node_modules/**",
+    ".git/**",
+    ".github/**",
+    "dist/**",
+    "build/**",
+    ".next/**",
+    "__pycache__/**",
+    "*.lock",
+    "*.log",
+    "*.bin",
+    "*.pdf",
+    "*.png",
+    "*.jpg",
+    "*.jpeg",
+    "*.gif",
+    "*.mp4",
+    "*.zip",
+    "*.tar",
+    "*.gz",
+    "coverage/**",
+    ".pnpm-store/**",
+    ".worktrees/**",
+    "vendor/**",
+    "apps/android/.gradle/**",
+    "apps/android/app/build/**",
+    "apps/android/.cxx/**",
+    "apps/macos/.build/**",
+    "apps/shared/MoltbotKit/.build/**",
+    "**/ModuleCache/**",
+    "bin/**",
+    "apps/macos/.build-local/**",
+    "apps/macos/.swiftpm/**",
+    "apps/shared/MoltbotKit/.swiftpm/**",
+    "Core/**",
+    "apps/ios/*.xcodeproj/**",
+    "apps/ios/*.xcworkspace/**",
+    "apps/ios/.swiftpm/**",
+    "dist/**",
+    "**/*.bun-build",
+    "apps/ios/*.xcfilelist",
+    "fastlane/**",
+    ".local/**",
+    ".serena/**",
+    "/memory/**",
+    ".agent/*.json"
+  ],
+  "gaps": [
+    {
+      "module": "src/gateway/server-methods/",
+      "description": "Gateway 核心方法实现详细扫描",
+      "priority": "high"
+    },
+    {
+      "module": "src/agents/tools/",
+      "description": "代理工具定义详细扫描",
+      "priority": "high"
+    },
+    {
+      "module": "src/auto-reply/reply/",
+      "description": "自动回复逻辑详细扫描",
+      "priority": "medium"
+    },
+    {
+      "module": "src/memory/",
+      "description": "记忆管理系统详细扫描",
+      "priority": "medium"
+    },
+    {
+      "module": "extensions/*/src/",
+      "description": "扩展实现细节",
+      "priority": "medium"
+    },
+    {
+      "module": "apps/*/Sources/",
+      "description": "移动应用实现",
+      "priority": "low"
+    },
+    {
+      "module": "skills/*/",
+      "description": "各技能详细实现",
+      "priority": "low"
+    }
+  ],
+  "truncated": false,
+  "nextSteps": [
+    "1. 优先补扫 src/gateway/server-methods/ - Gateway 核心方法实现",
+    "2. 优先补扫 src/agents/tools/ - 代理工具定义",
+    "3. 优先补扫 src/auto-reply/reply/ - 自动回复逻辑",
+    "4. 优先补扫 src/memory/ - 记忆管理系统",
+    "5. 补充各扩展的详细实现文档"
+  ]
+}

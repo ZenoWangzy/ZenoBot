@@ -1,6 +1,6 @@
 # OpenClaw 项目文档
 
-> 最后更新：2026年02月11日 00:58:28
+> 最后更新：2026年02月15日 19:31:37
 > 文档生成：自适应初始化架构师
 
 ## 项目愿景
@@ -41,14 +41,14 @@ OpenClaw 是一个**个人 AI 助手**，运行在您自己的设备上。它可
 
 ```mermaid
 graph TD
-    A["(根) openclaw"] --> B["src/"]
-    A --> C["apps/"]
-    A --> D["extensions/"]
-    A --> E["skills/"]
-    A --> F["ui/"]
-    A --> G["vendor/"]
-    A --> H["docs/"]
-    A --> I["scripts/"]
+    A["(根) openclaw"] --> B["src/ - 核心源码"]
+    A --> C["apps/ - 移动应用"]
+    A --> D["extensions/ - 扩展集成"]
+    A --> E["skills/ - 技能插件"]
+    A --> F["ui/ - Web UI"]
+    A --> G["vendor/ - 第三方依赖"]
+    A --> H["docs/ - 项目文档"]
+    A --> I["scripts/ - 构建脚本"]
 
     B --> J["agents/ - AI 代理运行时"]
     B --> K["gateway/ - WebSocket 控制平面"]
@@ -59,26 +59,23 @@ graph TD
     B --> P["cli/ - 命令行界面"]
     B --> Q["wizard/ - 向导流程"]
     B --> R["acp/ - Agent Client Protocol"]
+    B --> S["memory/ - 记忆管理系统"]
+    B --> T["auto-reply/ - 自动回复系统"]
+    B --> U["plugin-sdk/ - 插件开发 SDK"]
 
-    C --> S["android/ - Android 应用"]
-    C --> T["ios/ - iOS 应用"]
-    C --> U["macos/ - macOS 应用"]
-    C --> V["shared/ - 共享代码"]
+    C --> V["android/ - Android 应用"]
+    C --> W["ios/ - iOS 应用"]
+    C --> X["macos/ - macOS 应用"]
+    C --> Y["shared/ - 共享代码"]
 
-    D --> W["bluebubbles/ - iMessage 集成"]
-    D --> X["discord/ - Discord 集成"]
-    D --> Y["feishu/ - 飞书集成"]
-    D --> Z["googlechat/ - Google Chat 集成"]
-
-    E --> AA["本地技能扩展"]
-
-    F --> AB["Web UI 控制界面"]
-
-    G --> AC["a2ui/ - Canvas 渲染器"]
-
-    H --> AD["项目文档"]
-
-    I --> AE["构建和部署脚本"]
+    D --> Z["bluebubbles/ - iMessage 集成"]
+    D --> AA["discord/ - Discord 集成"]
+    D --> AB["feishu/ - 飞书集成"]
+    D --> AC["googlechat/ - Google Chat 集成"]
+    D --> AD["signal/ - Signal 集成"]
+    D --> AE["slack/ - Slack 集成"]
+    D --> AF["telegram/ - Telegram 集成"]
+    D --> AG["whatsapp/ - WhatsApp 集成"]
 
     click B "#src-core" "查看核心源码模块"
     click C "#apps-mobile" "查看移动应用模块"
@@ -90,28 +87,121 @@ graph TD
 
 ## 模块索引
 
-| 模块路径                  | 职责描述                                                        | 语言       | 入口文件          | 测试目录    |
-| ------------------------- | --------------------------------------------------------------- | ---------- | ----------------- | ----------- |
-| `src/agents/`             | AI 代理运行时，包括 Pi Agent 嵌入式运行时、认证配置、工具定义等 | TypeScript | `pi-embedded.ts`  | `*.test.ts` |
-| `src/gateway/`            | WebSocket 控制平面，处理会话、配置、事件广播等                  | TypeScript | `server.ts`       | `*.test.ts` |
-| `src/channels/`           | 消息渠道集成，包括插件系统、消息路由等                          | TypeScript | `registry.ts`     | `*.test.ts` |
-| `src/commands/`           | CLI 命令实现，包括 agent、gateway、configure 等                 | TypeScript | `agent.ts`        | `*.test.ts` |
-| `src/config/`             | 配置管理，包括配置加载、验证、迁移等                            | TypeScript | `config.ts`       | `*.test.ts` |
-| `src/browser/`            | 浏览器自动化，基于 Playwright 的控制服务                        | TypeScript | `server.ts`       | `*.test.ts` |
-| `src/cli/`                | 命令行界面框架和工具                                            | TypeScript | `program/`        | `*.test.ts` |
-| `src/wizard/`             | 向导流程，处理新用户入门                                        | TypeScript | `onboarding.ts`   | `*.test.ts` |
-| `src/acp/`                | Agent Client Protocol 实现                                      | TypeScript | `server.ts`       | `*.test.ts` |
-| `src/plugin-sdk/`         | 插件开发 SDK                                                    | TypeScript | `index.ts`        | `*.test.ts` |
-| `apps/android/`           | Android 应用，支持 Canvas、语音、相机等                         | Kotlin     | `MainActivity.kt` | `*/test/`   |
-| `apps/ios/`               | iOS 应用，支持 Canvas、语音、Bonjour 配对等                     | Swift      | `Sources/`        | -           |
-| `apps/macos/`             | macOS 菜单栏应用，控制平面                                      | Swift      | `Sources/`        | -           |
-| `extensions/bluebubbles/` | BlueBubbles iMessage 集成扩展                                   | TypeScript | `index.ts`        | `*.test.ts` |
-| `extensions/discord/`     | Discord 集成扩展                                                | TypeScript | `index.ts`        | -           |
-| `extensions/feishu/`      | 飞书集成扩展                                                    | TypeScript | `index.ts`        | -           |
-| `extensions/googlechat/`  | Google Chat 集成扩展                                            | TypeScript | `index.ts`        | -           |
-| `skills/`                 | 技能插件集合，包括各种第三方服务集成                            | 混合       | `SKILL.md`        | -           |
-| `ui/`                     | Web UI 控制界面                                                 | TypeScript | `src/main.ts`     | `*.test.ts` |
-| `vendor/a2ui/`            | Canvas A2UI 渲染器（第三方库）                                  | 多种       | `renderers/`      | -           |
+### 核心模块 (src/)
+
+| 模块路径 | 职责描述 | 语言 | 入口文件 | 测试覆盖 |
+|---------|---------|------|---------|---------|
+| `src/agents/` | AI 代理运行时，包括 Pi Agent 嵌入式运行时、认证配置、工具定义等 | TypeScript | `pi-embedded.ts` | ✅ |
+| `src/gateway/` | WebSocket 控制平面，处理会话、配置、事件广播等 | TypeScript | `server.ts` | ✅ |
+| `src/channels/` | 消息渠道集成，包括插件系统、消息路由等 | TypeScript | `registry.ts` | ✅ |
+| `src/memory/` | 记忆管理系统，包括向量搜索、嵌入、分层存储等 | TypeScript | `manager.ts` | ✅ |
+| `src/auto-reply/` | 自动回复系统，处理消息触发、命令解析、代理运行等 | TypeScript | `reply.ts` | ✅ |
+| `src/commands/` | CLI 命令实现 | TypeScript | `agent.ts` | ✅ |
+| `src/config/` | 配置管理 | TypeScript | `config.ts` | ✅ |
+| `src/browser/` | 浏览器自动化，基于 Playwright | TypeScript | `server.ts` | ✅ |
+| `src/cli/` | 命令行界面框架 | TypeScript | `program/` | ✅ |
+| `src/wizard/` | 向导流程 | TypeScript | `onboarding.ts` | ✅ |
+| `src/acp/` | Agent Client Protocol 实现 | TypeScript | `server.ts` | ✅ |
+| `src/plugin-sdk/` | 插件开发 SDK | TypeScript | `index.ts` | ✅ |
+
+### 移动应用 (apps/)
+
+| 模块路径 | 职责描述 | 语言 | 入口文件 | 测试覆盖 |
+|---------|---------|------|---------|---------|
+| `apps/android/` | Android 应用，支持 Canvas、语音、相机、位置等 | Kotlin | `MainActivity.kt` | ✅ |
+| `apps/ios/` | iOS 应用，支持 Canvas、语音、Bonjour 配对等 | Swift | `Sources/` | ❌ |
+| `apps/macos/` | macOS 菜单栏应用 | Swift | `Sources/` | ❌ |
+| `apps/shared/` | iOS/macOS 共享代码 | Swift | `OpenClawKit/` | ❌ |
+
+### 扩展集成 (extensions/)
+
+| 模块路径 | 职责描述 | 语言 |
+|---------|---------|------|
+| `extensions/bluebubbles/` | BlueBubbles iMessage 集成 | TypeScript |
+| `extensions/discord/` | Discord 集成 | TypeScript |
+| `extensions/feishu/` | 飞书集成 | TypeScript |
+| `extensions/googlechat/` | Google Chat 集成 | TypeScript |
+| `extensions/signal/` | Signal 集成 | TypeScript |
+| `extensions/slack/` | Slack 集成 | TypeScript |
+| `extensions/telegram/` | Telegram 集成 | TypeScript |
+| `extensions/whatsapp/` | WhatsApp 集成 | TypeScript |
+| `extensions/matrix/` | Matrix 集成 | TypeScript |
+| `extensions/irc/` | IRC 集成 | TypeScript |
+| `extensions/line/` | Line 集成 | TypeScript |
+| `extensions/mattermost/` | Mattermost 集成 | TypeScript |
+| `extensions/msteams/` | Microsoft Teams 集成 | TypeScript |
+| `extensions/nostr/` | Nostr 集成 | TypeScript |
+| `extensions/twitch/` | Twitch 集成 | TypeScript |
+| `extensions/zalo/` | Zalo 集成 | TypeScript |
+| `extensions/voice-call/` | 语音通话扩展 | TypeScript |
+| `extensions/memory-core/` | 记忆核心扩展 | TypeScript |
+| `extensions/copilot-proxy/` | Copilot 代理扩展 | TypeScript |
+
+### 其他模块
+
+| 模块路径 | 职责描述 | 语言 | 入口文件 |
+|---------|---------|------|---------|
+| `skills/` | 技能插件集合（69 个技能） | 混合 | `SKILL.md` |
+| `ui/` | Web UI 控制界面 | TypeScript | `src/main.ts` |
+| `vendor/a2ui/` | Canvas A2UI 渲染器（第三方库） | 多种 | `renderers/` |
+| `docs/` | 项目文档 | Markdown | - |
+| `scripts/` | 构建和部署脚本 | 混合 | - |
+
+## 核心工具列表
+
+### 代理工具 (Agent Tools)
+
+- **browser-tool** - 浏览器自动化控制
+- **canvas-tool** - Canvas 渲染和交互
+- **cron-tool** - 定时任务管理
+- **gateway-tool** - Gateway 状态和控制
+- **image-tool** - 图像处理
+- **message-tool** - 消息发送
+- **nodes-tool** - 节点管理
+- **sessions-list-tool** - 会话列表
+- **sessions-send-tool** - 会话消息发送
+- **sessions-spawn-tool** - 会话创建
+- **sessions-history-tool** - 会话历史
+- **session-status-tool** - 会话状态
+- **agents-list-tool** - 代理列表
+- **tts-tool** - 文本转语音
+- **web-search** - 网页搜索
+- **web-fetch** - 网页内容获取
+
+### 平台工具 (Platform Tools)
+
+- **discord-actions** - Discord 操作
+- **slack-actions** - Slack 操作
+- **telegram-actions** - Telegram 操作
+- **whatsapp-actions** - WhatsApp 操作
+
+## 支持的消息渠道
+
+### 核心渠道
+
+- Telegram (Bot API)
+- WhatsApp (QR link)
+- Discord (Bot API)
+- IRC (Server + Nick)
+- Google Chat (Chat API)
+- Slack (Socket Mode)
+- Signal (signal-cli)
+- iMessage (imsg)
+
+### 扩展渠道
+
+- BlueBubbles (iMessage)
+- Matrix
+- 飞书 (Feishu)
+- Line
+- Mattermost
+- Microsoft Teams
+- Nextcloud Talk
+- Nostr
+- Tlon
+- Twitch
+- Zalo
+- Zalo User
 
 ## 运行与开发
 
@@ -240,6 +330,8 @@ openclaw onboard --install-daemon
 3. **Agent 运行时**：`src/agents/` 包含 Pi Agent 嵌入式运行时和工具
 4. **消息渠道**：`src/channels/` 处理各种消息平台的集成
 5. **扩展系统**：`extensions/` 包含各种第三方服务集成
+6. **记忆系统**：`src/memory/` 提供向量搜索和记忆管理
+7. **自动回复**：`src/auto-reply/` 处理消息触发和命令解析
 
 ### 关键配置
 
@@ -262,8 +354,18 @@ openclaw onboard --install-daemon
 - **渠道路由**：根据渠道/账户/对等方路由到隔离的代理
 - **工具流**：代理可调用浏览器、Canvas、节点、cron 等工具
 - **安全默认**：DM 访问需要配对，未知发送者需明确批准
+- **记忆系统**：支持向量搜索、分层存储、自动压缩
 
 ## 变更记录 (Changelog)
+
+### 2026-02-15 19:31:37
+
+- 更新项目文档至版本 2026.2.13
+- 添加记忆管理系统模块
+- 添加自动回复系统模块
+- 更新工具列表，包含 16 个核心工具
+- 更新模块索引和覆盖率统计
+- 添加 69 个技能插件统计
 
 ### 2026-02-11 00:58:28
 
@@ -273,22 +375,26 @@ openclaw onboard --install-daemon
 
 ### 覆盖率统计
 
-- **估算总文件数**：约 2500+ 源代码文件（排除 node_modules）
-- **已扫描文件数**：约 600+ 文件
-- **覆盖百分比**：约 24%（第一阶段快速扫描）
-- **主要缺口**：
-  - `apps/android/` 详细实现（已识别主要结构）
-  - `apps/ios/` 详细实现（已识别主要结构）
-  - `apps/macos/` 详细实现（已识别主要结构）
-  - `extensions/` 各扩展详细实现
-  - `skills/` 各技能详细实现
-  - `src/agents/tools/` 详细实现
-  - `src/gateway/server-methods/` 详细实现
+- **估算总文件数**：约 2000 源代码文件（排除 node_modules）
+- **已扫描文件数**：约 950 文件
+- **覆盖百分比**：约 48%（第二阶段扫描）
+- **测试文件数**：约 250 个
+- **技能数量**：69 个
+
+### 主要缺口
+
+- `src/gateway/server-methods/` 详细实现
+- `src/agents/tools/` 详细实现
+- `src/auto-reply/reply/` 详细实现
+- `src/memory/` 详细实现
+- `extensions/*/src/` 各扩展详细实现
+- `apps/*/Sources/` 移动应用详细实现
+- `skills/*/` 各技能详细实现
 
 ### 下一步建议
 
 1. 优先补扫 `src/gateway/server-methods/` - Gateway 核心方法实现
 2. 优先补扫 `src/agents/tools/` - 代理工具定义
-3. 优先补扫 `extensions/*/src/` - 扩展实现细节
-4. 优先补扫 `apps/*/Sources/` 或 `*/src/` - 移动应用实现
-5. 补充 `test/` 目录下的测试覆盖情况分析
+3. 优先补扫 `src/auto-reply/reply/` - 自动回复逻辑
+4. 优先补扫 `src/memory/` - 记忆管理系统
+5. 补充各扩展的详细实现文档

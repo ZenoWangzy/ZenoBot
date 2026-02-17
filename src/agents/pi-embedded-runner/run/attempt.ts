@@ -887,18 +887,20 @@ export async function runEmbeddedAttempt(
               cfg: params.config!,
               agentId: sessionAgentId,
             });
-            const preloaded = await preloadMemory({
-              userMessage: effectivePrompt,
-              sessionKey: params.sessionKey,
-              manager,
-              config: memSearchCfg.preload,
-            });
-            if (preloaded.length > 0) {
-              const memSection = formatPreloadedMemorySection(preloaded);
-              effectivePrompt = `${memSection}\n\n${effectivePrompt}`;
-              log.debug(
-                `memory preload: injected ${preloaded.length} snippets (${preloaded.reduce((s, m) => s + m.tokens, 0)} tokens)`,
-              );
+            if (manager) {
+              const preloaded = await preloadMemory({
+                userMessage: effectivePrompt,
+                sessionKey: params.sessionKey,
+                manager,
+                config: memSearchCfg.preload,
+              });
+              if (preloaded.length > 0) {
+                const memSection = formatPreloadedMemorySection(preloaded);
+                effectivePrompt = `${memSection}\n\n${effectivePrompt}`;
+                log.debug(
+                  `memory preload: injected ${preloaded.length} snippets (${preloaded.reduce((s, m) => s + m.tokens, 0)} tokens)`,
+                );
+              }
             }
           } catch (preloadErr) {
             log.debug(`memory preload failed (non-fatal): ${String(preloadErr)}`);

@@ -25,7 +25,10 @@ import { createDiscordRetryRunner } from "../../infra/retry-policy.js";
 import { createSubsystemLogger } from "../../logging/subsystem.js";
 import { createNonExitingRuntime, type RuntimeEnv } from "../../runtime.js";
 import { resolveDiscordAccount } from "../accounts.js";
-import { attachDiscordGatewayLogging } from "../gateway-logging.js";
+import {
+  attachDiscordGatewayLogging,
+  DiscordGatewayHealthMonitor,
+} from "../gateway-logging.js";
 import { getDiscordGatewayEmitter, waitForDiscordGatewayStop } from "../monitor.gateway.js";
 import { fetchDiscordApplicationId } from "../probe.js";
 import { resolveDiscordChannelAllowlist } from "../resolve-channels.js";
@@ -596,10 +599,31 @@ export async function monitorDiscordProvider(opts: MonitorDiscordOpts = {}) {
     registerGateway(account.accountId, gateway);
   }
   const gatewayEmitter = getDiscordGatewayEmitter(gateway);
+
+  // Create health monitor for zombie connection detection
+  const healthMonitor = new DiscordGatewayHealthMonitor({
+    checkIntervalMs: 60000, // Check every 60 seconds
+    zombieThresholdMs: 180000, // 3 minutes without activity = zombie
+  });
+
+  // Set up zombie detection handler
+  healthMonitor.setOnZombieDetected(() => {
+    runtime.log?.(
+      danger("discord gateway: zombie connection detected, forcing reconnect")
+    );
+    gateway?.disconnect();
+    // Carbon's reconnect logic will handle the reconnection
+    gateway?.connect(false);
+  });
+
   const stopGatewayLogging = attachDiscordGatewayLogging({
     emitter: gatewayEmitter,
     runtime,
+    healthMonitor,
   });
+
+  // Start health monitoring
+  healthMonitor.start();
   const abortSignal = opts.abortSignal;
   const onAbort = () => {
     if (!gateway) {
@@ -662,6 +686,7 @@ export async function monitorDiscordProvider(opts: MonitorDiscordOpts = {}) {
     });
   } finally {
     unregisterGateway(account.accountId);
+    healthMonitor.stop();
     stopGatewayLogging();
     if (helloTimeoutId) {
       clearTimeout(helloTimeoutId);

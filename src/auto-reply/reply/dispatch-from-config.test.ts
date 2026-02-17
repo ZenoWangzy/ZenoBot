@@ -219,6 +219,34 @@ describe("dispatchReplyFromConfig", () => {
     expect(dispatcher.sendFinalReply).toHaveBeenCalledTimes(1);
   });
 
+  it("sends progress updates via dispatcher", async () => {
+    mocks.tryFastAbortFromMessage.mockResolvedValue({
+      handled: false,
+      aborted: false,
+    });
+    const cfg = {} as OpenClawConfig;
+    const dispatcher = createDispatcher();
+    const ctx = buildTestCtx({
+      Provider: "telegram",
+      ChatType: "direct",
+    });
+
+    const replyResolver = async (
+      _ctx: MsgContext,
+      opts: GetReplyOptions | undefined,
+      _cfg: OpenClawConfig,
+    ) => {
+      await opts?.onProgressUpdate?.({ text: "⏳ Still working..." });
+      return { text: "done" } satisfies ReplyPayload;
+    };
+
+    await dispatchReplyFromConfig({ ctx, cfg, dispatcher, replyResolver });
+    expect(dispatcher.sendToolResult).toHaveBeenCalledWith(
+      expect.objectContaining({ text: "⏳ Still working..." }),
+    );
+    expect(dispatcher.sendFinalReply).toHaveBeenCalledTimes(1);
+  });
+
   it("does not provide onToolResult for native slash commands", async () => {
     mocks.tryFastAbortFromMessage.mockResolvedValue({
       handled: false,

@@ -78,6 +78,7 @@ export async function runAgentTurnWithFallback(params: {
   activeSessionStore?: Record<string, SessionEntry>;
   storePath?: string;
   resolvedVerboseLevel: VerboseLevel;
+  onRunEvent?: (evt: { stream: string; data: Record<string, unknown> }) => void;
 }): Promise<AgentRunLoopResult> {
   const TRANSIENT_HTTP_RETRY_DELAY_MS = 2_500;
   let didLogHeartbeatStrip = false;
@@ -360,6 +361,7 @@ export async function runAgentTurnWithFallback(params: {
                   autoCompactionCompleted = true;
                 }
               }
+              params.onRunEvent?.(evt);
             },
             // Always pass onBlockReply so flushBlockReplyBuffer works before tool execution,
             // even when regular block streaming is disabled. The handler sends directly

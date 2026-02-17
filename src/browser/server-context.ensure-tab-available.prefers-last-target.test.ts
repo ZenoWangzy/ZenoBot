@@ -128,13 +128,47 @@ describe("browser server-context ensureTabAvailable", () => {
     expect(chosen.targetId).toBe("A");
   });
 
-  it("returns a descriptive message when no extension tabs are attached", async () => {
-    const responses = [[]];
-    stubChromeJsonList(responses);
+  it("auto-opens a tab when no extension tabs are attached", async () => {
+    const fetchMock = vi.fn();
+    fetchMock.mockImplementation(async (url: unknown) => {
+      const u = String(url);
+      if (!fetchMock.__listCalls) {
+        // @ts-expect-error test-only marker
+        fetchMock.__listCalls = 0;
+      }
+      if (u.includes("/json/list")) {
+        // @ts-expect-error test-only marker
+        fetchMock.__listCalls += 1;
+        // @ts-expect-error test-only marker
+        if (fetchMock.__listCalls === 1) {
+          return { ok: true, json: async () => [] } as unknown as Response;
+        }
+        return {
+          ok: true,
+          json: async () => [
+            { id: "A", type: "page", url: "about:blank", webSocketDebuggerUrl: "ws://x/a" },
+          ],
+        } as unknown as Response;
+      }
+      if (u.includes("/json/version")) {
+        return { ok: true, json: async () => ({}) } as unknown as Response;
+      }
+      if (u.includes("/json/new")) {
+        return {
+          ok: true,
+          json: async () => ({ id: "A", type: "page", url: "about:blank", title: "" }),
+        } as unknown as Response;
+      }
+      throw new Error(`unexpected fetch: ${u}`);
+    });
+
+    global.fetch = fetchMock;
+
     const state = makeBrowserState();
 
     const ctx = createBrowserRouteContext({ getState: () => state });
     const chrome = ctx.forProfile("chrome");
-    await expect(chrome.ensureTabAvailable()).rejects.toThrow(/no attached Chrome tabs/i);
+    const chosen = await chrome.ensureTabAvailable();
+    expect(chosen.targetId).toBe("A");
   });
 });

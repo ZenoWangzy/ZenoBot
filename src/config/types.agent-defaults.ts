@@ -163,8 +163,23 @@ export type AgentDefaultsConfig = {
   /** Max inbound media size in MB for agent-visible attachments (text note or future image attach). */
   mediaMaxMb?: number;
   typingIntervalSeconds?: number;
+  /** Typing indicator TTL in seconds (0 disables TTL auto-stop, default: 120). */
+  typingTtlSeconds?: number;
   /** Typing indicator start mode (never|instant|thinking|message). */
   typingMode?: TypingMode;
+  /** Periodic progress messages for long-running tasks. */
+  progressMessages?: {
+    /** Enable periodic progress updates (default: false). */
+    enabled?: boolean;
+    /** Progress update interval (duration string, default unit: seconds; default: 30s). */
+    interval?: string;
+    /** Progress message template. Supports {elapsedMs}, {elapsedSeconds}, {status}, {phase}, and {tool}. */
+    template?: string;
+    /** Only emit progress after this many seconds of user-visible quiet time (default: 0). */
+    quietAfterSeconds?: number;
+    /** Send an immediate progress message when status/phase changes (default: false). */
+    statusChangeImmediate?: boolean;
+  };
   /** Periodic background heartbeat runs. */
   heartbeat?: {
     /** Heartbeat interval (duration string, default unit: minutes; default: 30m). */

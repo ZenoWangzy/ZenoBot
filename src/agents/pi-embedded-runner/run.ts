@@ -923,6 +923,18 @@ export async function runEmbeddedPiAgent(
             toolResultFormat: resolvedToolResultFormat,
             inlineToolResultsAllowed: false,
           });
+          const timeoutOrAbortPayload =
+            payloads.length === 0 && (timedOut || aborted)
+              ? [
+                  {
+                    text: timedOut
+                      ? "Request timed out while processing your task. Please retry or shorten the request."
+                      : "Request was interrupted before completion. Please retry.",
+                    isError: true,
+                  },
+                ]
+              : undefined;
+          const payloadsFinal = timeoutOrAbortPayload ?? payloads;
 
           // Timeout aborts can leave the run without any assistant payloads.
           // Emit an explicit timeout error instead of silently completing, so
@@ -966,7 +978,7 @@ export async function runEmbeddedPiAgent(
             });
           }
           return {
-            payloads: payloads.length ? payloads : undefined,
+            payloads: payloadsFinal.length ? payloadsFinal : undefined,
             meta: {
               durationMs: Date.now() - started,
               agentMeta,

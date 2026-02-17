@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { parseDurationMs } from "../cli/parse-duration.js";
 import {
   HeartbeatSchema,
   MemorySearchSchema,
@@ -128,6 +129,7 @@ export const AgentDefaultsSchema = z
     timeoutSeconds: z.number().int().positive().optional(),
     mediaMaxMb: z.number().positive().optional(),
     typingIntervalSeconds: z.number().int().positive().optional(),
+    typingTtlSeconds: z.number().int().nonnegative().optional(),
     typingMode: z
       .union([
         z.literal("never"),
@@ -135,6 +137,30 @@ export const AgentDefaultsSchema = z
         z.literal("thinking"),
         z.literal("message"),
       ])
+      .optional(),
+    progressMessages: z
+      .object({
+        enabled: z.boolean().optional(),
+        interval: z.string().optional(),
+        template: z.string().optional(),
+        quietAfterSeconds: z.number().int().nonnegative().optional(),
+        statusChangeImmediate: z.boolean().optional(),
+      })
+      .strict()
+      .superRefine((val, ctx) => {
+        if (!val.interval) {
+          return;
+        }
+        try {
+          parseDurationMs(val.interval, { defaultUnit: "s" });
+        } catch {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["interval"],
+            message: "invalid duration (use ms, s, m, h)",
+          });
+        }
+      })
       .optional(),
     heartbeat: HeartbeatSchema,
     maxConcurrent: z.number().int().positive().optional(),

@@ -1,4 +1,10 @@
 const DEFAULT_PORT = 18792
+const RECONNECT_ALARM = 'openclaw-relay-reconnect'
+const RECONNECT_ALARM_PERIOD_MINUTES = 1
+const AUTO_ATTACH_RULES_KEY = 'autoAttachRules'
+const MAX_AUTO_ATTACH_RULES = 24
+const INITIAL_RECONNECT_DELAY_MS = 1000
+const MAX_RECONNECT_DELAY_MS = 30000
 
 const BADGE = {
   on: { text: 'ON', color: '#FF5A36' },
@@ -11,6 +17,10 @@ const BADGE = {
 let relayWs = null
 /** @type {Promise<void>|null} */
 let relayConnectPromise = null
+/** @type {ReturnType<typeof setTimeout>|null} */
+let relayReconnectTimer = null
+let relayReconnectDelayMs = INITIAL_RECONNECT_DELAY_MS
+let bootstrapStarted = false
 
 let debuggerListenersInstalled = false
 
@@ -31,6 +41,129 @@ function nowStack() {
     return new Error().stack || ''
   } catch {
     return ''
+  }
+}
+
+async function ensureRelayAndSync() {
+  await ensureRelayConnection()
+  await restoreAutoAttachedTabs()
+  await announceAttachedTabsToRelay()
+}
+
+async function autoConnectRelay() {
+  try {
+    await ensureRelayAndSync()
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.warn('auto-connect failed', message)
+    increaseRelayBackoff()
+    scheduleRelayReconnect()
+  }
+}
+
+async function bootstrapAutoRelay() {
+  if (bootstrapStarted) return
+  bootstrapStarted = true
+  await ensureReconnectAlarm()
+  await autoConnectRelay()
+}
+
+function normalizeOrigin(rawUrl) {
+  if (typeof rawUrl !== 'string' || rawUrl.trim() === '') return null
+  try {
+    const parsed = new URL(rawUrl)
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return null
+    }
+    return `${parsed.protocol}//${parsed.host}`.toLowerCase()
+  } catch {
+    return null
+  }
+}
+
+async function loadAutoAttachRules() {
+  try {
+    const stored = await chrome.storage.local.get([AUTO_ATTACH_RULES_KEY])
+    const raw = stored[AUTO_ATTACH_RULES_KEY]
+    if (!Array.isArray(raw)) return []
+    return raw
+      .filter((value) => typeof value === 'string')
+      .map((value) => value.trim().toLowerCase())
+      .filter(Boolean)
+      .slice(0, MAX_AUTO_ATTACH_RULES)
+  } catch {
+    return []
+  }
+}
+
+async function saveAutoAttachRules(rules) {
+  const normalized = Array.from(
+    new Set(
+      (rules || [])
+        .filter((value) => typeof value === 'string')
+        .map((value) => value.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  ).slice(0, MAX_AUTO_ATTACH_RULES)
+  await chrome.storage.local.set({ [AUTO_ATTACH_RULES_KEY]: normalized })
+  return normalized
+}
+
+async function rememberAutoAttachRuleForTab(tabId) {
+  const tab = await chrome.tabs.get(tabId).catch(() => null)
+  const origin = normalizeOrigin(tab?.url)
+  if (!origin) {
+    return
+  }
+  const rules = await loadAutoAttachRules()
+  if (rules.includes(origin)) {
+    return
+  }
+  await saveAutoAttachRules([...rules, origin])
+}
+
+async function forgetAutoAttachRuleForTab(tabId) {
+  const tab = await chrome.tabs.get(tabId).catch(() => null)
+  const origin = normalizeOrigin(tab?.url)
+  if (!origin) {
+    return
+  }
+  const rules = await loadAutoAttachRules()
+  if (!rules.length) {
+    return
+  }
+  await saveAutoAttachRules(rules.filter((value) => value !== origin))
+}
+
+function clearRelayReconnectTimer() {
+  if (!relayReconnectTimer) return
+  clearTimeout(relayReconnectTimer)
+  relayReconnectTimer = null
+}
+
+function resetRelayBackoff() {
+  relayReconnectDelayMs = INITIAL_RECONNECT_DELAY_MS
+}
+
+function increaseRelayBackoff() {
+  relayReconnectDelayMs = Math.min(relayReconnectDelayMs * 2, MAX_RECONNECT_DELAY_MS)
+}
+
+function scheduleRelayReconnect(delayMs = relayReconnectDelayMs) {
+  if (relayReconnectTimer) return
+  relayReconnectTimer = setTimeout(() => {
+    relayReconnectTimer = null
+    void autoConnectRelay()
+  }, Math.max(200, delayMs))
+}
+
+async function ensureReconnectAlarm() {
+  try {
+    await chrome.alarms.create(RECONNECT_ALARM, {
+      periodInMinutes: RECONNECT_ALARM_PERIOD_MINUTES,
+    })
+  } catch {
+    // ignore
   }
 }
 
@@ -87,6 +220,8 @@ async function ensureRelayConnection() {
     ws.onmessage = (event) => void onRelayMessage(String(event.data || ''))
     ws.onclose = () => onRelayClosed('closed')
     ws.onerror = () => onRelayClosed('error')
+    clearRelayReconnectTimer()
+    resetRelayBackoff()
 
     if (!debuggerListenersInstalled) {
       debuggerListenersInstalled = true
@@ -108,18 +243,18 @@ function onRelayClosed(reason) {
     pending.delete(id)
     p.reject(new Error(`Relay disconnected (${reason})`))
   }
-
-  for (const tabId of tabs.keys()) {
-    void chrome.debugger.detach({ tabId }).catch(() => {})
+  for (const [tabId, tabState] of tabs.entries()) {
+    if (tabState?.state === 'connected') {
+      tabs.set(tabId, { ...tabState, state: 'connecting' })
+    }
     setBadge(tabId, 'connecting')
     void chrome.action.setTitle({
       tabId,
-      title: 'OpenClaw Browser Relay: disconnected (click to re-attach)',
+      title: 'OpenClaw Browser Relay: disconnected (auto-reconnecting)',
     })
   }
-  tabs.clear()
-  tabBySession.clear()
   childSessionToTab.clear()
+  scheduleRelayReconnect()
 }
 
 function sendToRelay(payload) {
@@ -152,6 +287,104 @@ function requestFromRelay(command) {
       reject(err instanceof Error ? err : new Error(String(err)))
     }
   })
+}
+
+async function pruneMissingAttachedTabs() {
+  for (const [tabId, tabState] of tabs.entries()) {
+    const exists = await chrome.tabs.get(tabId).catch(() => null)
+    if (exists) {
+      continue
+    }
+    if (tabState?.sessionId) {
+      tabBySession.delete(tabState.sessionId)
+    }
+    tabs.delete(tabId)
+    for (const [childSessionId, parentTabId] of childSessionToTab.entries()) {
+      if (parentTabId === tabId) childSessionToTab.delete(childSessionId)
+    }
+  }
+}
+
+async function restoreAutoAttachedTabs() {
+  const ws = relayWs
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    return
+  }
+  const rules = await loadAutoAttachRules()
+  if (!rules.length) {
+    return
+  }
+  const allTabs = await chrome.tabs.query({})
+  for (const tab of allTabs) {
+    const tabId = tab?.id
+    if (!tabId || tabs.has(tabId)) {
+      continue
+    }
+    const origin = normalizeOrigin(tab.url)
+    if (!origin || !rules.includes(origin)) {
+      continue
+    }
+    setBadge(tabId, 'connecting')
+    try {
+      await attachTab(tabId, { skipAttachedEvent: true })
+    } catch {
+      // ignore best-effort restores (e.g. restricted pages)
+    }
+  }
+}
+
+async function announceAttachedTabsToRelay() {
+  const ws = relayWs
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    return
+  }
+  await pruneMissingAttachedTabs()
+  for (const [tabId, tabState] of tabs.entries()) {
+    if (!tabState || (tabState.state !== 'connected' && tabState.state !== 'connecting')) {
+      continue
+    }
+    let info
+    try {
+      info = await chrome.debugger.sendCommand({ tabId }, 'Target.getTargetInfo')
+    } catch {
+      await detachTab(tabId, 'sync-failed')
+      continue
+    }
+    const targetInfo = info?.targetInfo
+    const targetId = String(targetInfo?.targetId || '').trim()
+    if (!targetId) {
+      continue
+    }
+    const sessionId = tabState.sessionId || `cb-tab-${nextSession++}`
+    tabs.set(tabId, {
+      state: 'connected',
+      sessionId,
+      targetId,
+      attachOrder: tabState.attachOrder,
+    })
+    tabBySession.set(sessionId, tabId)
+    setBadge(tabId, 'on')
+    void chrome.action.setTitle({
+      tabId,
+      title: 'OpenClaw Browser Relay: attached (auto-restored)',
+    })
+    try {
+      sendToRelay({
+        method: 'forwardCDPEvent',
+        params: {
+          method: 'Target.attachedToTarget',
+          params: {
+            sessionId,
+            targetInfo: { ...targetInfo, attached: true },
+            waitingForDebugger: false,
+          },
+        },
+      })
+    } catch {
+      // relay might have dropped again; retry loop will handle it
+      return
+    }
+  }
 }
 
 async function onRelayMessage(text) {
@@ -223,6 +456,7 @@ async function attachTab(tabId, opts = {}) {
 
   tabs.set(tabId, { state: 'connected', sessionId, targetId, attachOrder })
   tabBySession.set(sessionId, tabId)
+  await rememberAutoAttachRuleForTab(tabId).catch(() => {})
   void chrome.action.setTitle({
     tabId,
     title: 'OpenClaw Browser Relay: attached (click to detach)',
@@ -275,6 +509,10 @@ async function detachTab(tabId, reason) {
     // ignore
   }
 
+  if (reason === 'toggle') {
+    await forgetAutoAttachRuleForTab(tabId).catch(() => {})
+  }
+
   setBadge(tabId, 'off')
   void chrome.action.setTitle({
     tabId,
@@ -301,7 +539,7 @@ async function connectOrToggleForActiveTab() {
   })
 
   try {
-    await ensureRelayConnection()
+    await ensureRelayAndSync()
     await attachTab(tabId)
   } catch (err) {
     tabs.delete(tabId)
@@ -321,6 +559,15 @@ async function handleForwardCdpCommand(msg) {
   const method = String(msg?.params?.method || '').trim()
   const params = msg?.params?.params || undefined
   const sessionId = typeof msg?.params?.sessionId === 'string' ? msg.params.sessionId : undefined
+
+  if (method === 'Target.createTarget') {
+    const url = typeof params?.url === 'string' ? params.url : 'about:blank'
+    const tab = await chrome.tabs.create({ url, active: false })
+    if (!tab.id) throw new Error('Failed to create tab')
+    await new Promise((r) => setTimeout(r, 100))
+    const attached = await attachTab(tab.id)
+    return { targetId: attached.targetId }
+  }
 
   // Map command to tab
   const bySession = sessionId ? getTabBySessionId(sessionId) : null
@@ -351,14 +598,6 @@ async function handleForwardCdpCommand(msg) {
     return await chrome.debugger.sendCommand(debuggee, 'Runtime.enable', params)
   }
 
-  if (method === 'Target.createTarget') {
-    const url = typeof params?.url === 'string' ? params.url : 'about:blank'
-    const tab = await chrome.tabs.create({ url, active: false })
-    if (!tab.id) throw new Error('Failed to create tab')
-    await new Promise((r) => setTimeout(r, 100))
-    const attached = await attachTab(tab.id)
-    return { targetId: attached.targetId }
-  }
 
   if (method === 'Target.closeTarget') {
     const target = typeof params?.targetId === 'string' ? params.targetId : ''
@@ -432,7 +671,47 @@ function onDebuggerDetach(source, reason) {
 
 chrome.action.onClicked.addListener(() => void connectOrToggleForActiveTab())
 
+chrome.tabs.onRemoved.addListener((tabId) => {
+  if (!tabs.has(tabId)) return
+  void detachTab(tabId, 'tab-removed')
+})
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (!changeInfo.url && changeInfo.status !== 'complete') {
+    return
+  }
+  void (async () => {
+    if (tabs.has(tabId)) return
+    const origin = normalizeOrigin(tab?.url || changeInfo.url)
+    if (!origin) return
+    const rules = await loadAutoAttachRules()
+    if (!rules.includes(origin)) return
+    try {
+      await ensureRelayAndSync()
+      if (!tabs.has(tabId)) {
+        await attachTab(tabId)
+      }
+    } catch {
+      // ignore; periodic alarm/auto-reconnect will retry
+    }
+  })()
+})
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name !== RECONNECT_ALARM) return
+  if (relayWs && relayWs.readyState === WebSocket.OPEN) return
+  void autoConnectRelay()
+})
+
+if (chrome.runtime.onStartup) {
+  chrome.runtime.onStartup.addListener(() => void bootstrapAutoRelay())
+}
+
 chrome.runtime.onInstalled.addListener(() => {
+  void ensureReconnectAlarm()
+  void autoConnectRelay()
   // Useful: first-time instructions.
   void chrome.runtime.openOptionsPage()
 })
+
+void bootstrapAutoRelay()

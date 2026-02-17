@@ -18,7 +18,9 @@ import {
   updateSessionStore,
   updateSessionStoreEntry,
 } from "../../config/sessions.js";
+import { parseDurationMs } from "../../cli/parse-duration.js";
 import { emitDiagnosticEvent, isDiagnosticsEnabled } from "../../infra/diagnostic-events.js";
+import { logVerbose } from "../../globals.js";
 import { defaultRuntime } from "../../runtime.js";
 import { estimateUsageCost, resolveModelCostConfig } from "../../utils/usage-format.js";
 import { resolveResponseUsageMode, type VerboseLevel } from "../thinking.js";
@@ -42,6 +44,9 @@ import { incrementRunCompactionCount, persistRunSessionUsage } from "./session-r
 import { createTypingSignaler } from "./typing-mode.js";
 
 const BLOCK_REPLY_SEND_TIMEOUT_MS = 15_000;
+const PROGRESS_UPDATE_DEFAULT_INTERVAL_MS = 30_000;
+const PROGRESS_UPDATE_MIN_INTERVAL_MS = 10_000;
+const PROGRESS_DUPLICATE_RESEND_MS = 60_000;
 
 export async function runReplyAgent(params: {
   commandBody: string;
@@ -125,6 +130,180 @@ export async function runReplyAgent(params: {
 
   const pendingToolTasks = new Set<Promise<void>>();
   const blockReplyTimeoutMs = opts?.blockReplyTimeoutMs ?? BLOCK_REPLY_SEND_TIMEOUT_MS;
+  const progressConfig = followupRun.run.config?.agents?.defaults?.progressMessages;
+  const shouldSendProgressUpdates =
+    !isHeartbeat && progressConfig?.enabled === true && Boolean(opts?.onProgressUpdate);
+  const progressIntervalRaw = progressConfig?.interval?.trim();
+  const progressTemplateRaw = progressConfig?.template?.trim();
+  const progressTemplate = progressTemplateRaw && progressTemplateRaw.length > 0 ? progressTemplateRaw : undefined;
+  const quietAfterMs = Math.max(0, (progressConfig?.quietAfterSeconds ?? 0) * 1000);
+  const statusChangeImmediate = progressConfig?.statusChangeImmediate === true;
+  let progressIntervalMs = PROGRESS_UPDATE_DEFAULT_INTERVAL_MS;
+  if (progressIntervalRaw) {
+    try {
+      progressIntervalMs = parseDurationMs(progressIntervalRaw, { defaultUnit: "s" });
+    } catch (err) {
+      logVerbose(
+        `Invalid agents.defaults.progressMessages.interval "${progressIntervalRaw}": ${String(err)}. Falling back to 30s.`,
+      );
+    }
+  }
+  progressIntervalMs = Math.max(PROGRESS_UPDATE_MIN_INTERVAL_MS, progressIntervalMs);
+  let progressTimer: NodeJS.Timeout | undefined;
+  let progressStopped = false;
+  let progressStatusLabel: string | undefined;
+  let progressPhase = "thinking";
+  let progressToolName: string | undefined;
+  const progressStartedAt = Date.now();
+  let lastVisibleActivityAt = progressStartedAt;
+  let lastProgressMessage = "";
+  let lastProgressSentAt = 0;
+  const markVisibleActivity = () => {
+    lastVisibleActivityAt = Date.now();
+  };
+  const formatProgressStatus = () => {
+    const elapsedMs = Math.max(1, Date.now() - progressStartedAt);
+    const elapsedSec = Math.max(1, Math.floor((Date.now() - progressStartedAt) / 1000));
+    if (progressTemplate) {
+      const rendered = progressTemplate
+        .replaceAll("{elapsedMs}", String(elapsedMs))
+        .replaceAll("{elapsedSeconds}", String(elapsedSec))
+        .replaceAll("{status}", progressStatusLabel ?? "")
+        .replaceAll("{phase}", progressPhase)
+        .replaceAll("{tool}", progressToolName ?? "")
+        .trim();
+      if (rendered) {
+        return rendered;
+      }
+    }
+    const detail = progressStatusLabel ? ` · ${progressStatusLabel}` : "";
+    return `⏳ Still working (${elapsedSec}s)${detail}.`;
+  };
+  const queueProgressUpdate = () => {
+    if (!shouldSendProgressUpdates || progressStopped) {
+      return;
+    }
+    if (quietAfterMs > 0 && Date.now() - lastVisibleActivityAt < quietAfterMs) {
+      return;
+    }
+    const messageText = formatProgressStatus();
+    const now = Date.now();
+    if (
+      messageText === lastProgressMessage &&
+      now - lastProgressSentAt < PROGRESS_DUPLICATE_RESEND_MS
+    ) {
+      return;
+    }
+    void Promise.resolve(
+      opts?.onProgressUpdate?.({
+        text: messageText,
+      }),
+    )
+      .then(() => {
+        lastProgressMessage = messageText;
+        lastProgressSentAt = now;
+        markVisibleActivity();
+      })
+      .catch((err) => {
+        logVerbose(`progress update delivery failed: ${String(err)}`);
+      });
+  };
+  const maybeQueueImmediateProgress = (previous: {
+    status?: string;
+    phase: string;
+    tool?: string;
+  }) => {
+    if (!statusChangeImmediate) {
+      return;
+    }
+    if (
+      previous.status !== progressStatusLabel ||
+      previous.phase !== progressPhase ||
+      previous.tool !== progressToolName
+    ) {
+      queueProgressUpdate();
+    }
+  };
+  const updateProgressStatusFromEvent = (evt: { stream: string; data: Record<string, unknown> }) => {
+    if (!shouldSendProgressUpdates) {
+      return;
+    }
+    const previous = {
+      status: progressStatusLabel,
+      phase: progressPhase,
+      tool: progressToolName,
+    };
+    if (evt.stream === "tool") {
+      const phase = typeof evt.data.phase === "string" ? evt.data.phase : "";
+      const name = typeof evt.data.name === "string" ? evt.data.name : undefined;
+      if (phase === "start" || phase === "update") {
+        progressPhase = phase === "start" ? "tool_start" : "tool_update";
+        progressToolName = name;
+        progressStatusLabel = name ? `running tool: ${name}` : "running tool";
+      } else if (phase === "result") {
+        progressPhase = "tool_result";
+        progressToolName = name;
+        const isError = Boolean(evt.data.isError);
+        progressStatusLabel = isError
+          ? name
+            ? `tool failed: ${name}`
+            : "tool failed"
+          : name
+            ? `tool done: ${name}`
+            : "tool completed";
+      }
+      maybeQueueImmediateProgress(previous);
+      return;
+    }
+    if (evt.stream === "compaction") {
+      const phase = typeof evt.data.phase === "string" ? evt.data.phase : "";
+      if (phase === "start") {
+        progressPhase = "compaction_start";
+        progressToolName = undefined;
+        progressStatusLabel = "compacting session";
+      } else if (phase === "end") {
+        progressPhase = "compaction_end";
+        progressToolName = undefined;
+        progressStatusLabel = "compaction complete";
+      }
+      maybeQueueImmediateProgress(previous);
+      return;
+    }
+    if (evt.stream === "assistant") {
+      const delta = typeof evt.data.delta === "string" ? evt.data.delta.trim() : "";
+      const mediaUrls = Array.isArray(evt.data.mediaUrls) ? evt.data.mediaUrls : [];
+      if (delta || mediaUrls.length > 0) {
+        progressPhase = "assistant_stream";
+        progressToolName = undefined;
+        progressStatusLabel = "drafting response";
+        markVisibleActivity();
+      }
+      maybeQueueImmediateProgress(previous);
+      return;
+    }
+    if (evt.stream === "lifecycle") {
+      const phase = typeof evt.data.phase === "string" ? evt.data.phase : "";
+      if (phase === "start") {
+        progressPhase = "lifecycle_start";
+        progressToolName = undefined;
+        progressStatusLabel = "thinking";
+      } else if (phase === "end") {
+        progressPhase = "lifecycle_end";
+        progressToolName = undefined;
+        progressStatusLabel = "finalizing response";
+      } else if (phase === "error") {
+        progressPhase = "lifecycle_error";
+        progressToolName = undefined;
+        progressStatusLabel = "run error";
+      }
+      maybeQueueImmediateProgress(previous);
+    }
+  };
+  if (shouldSendProgressUpdates) {
+    progressTimer = setInterval(() => {
+      queueProgressUpdate();
+    }, progressIntervalMs);
+  }
 
   const replyToChannel =
     sessionCtx.OriginatingChannel ??
@@ -304,13 +483,34 @@ export async function runReplyAgent(params: {
         `Role ordering conflict (${reason}). Restarting session ${sessionKey} -> ${nextSessionId}.`,
       cleanupTranscripts: true,
     });
+  const optsWithVisibilityTracking: GetReplyOptions | undefined = opts
+    ? {
+        ...opts,
+        onPartialReply: async (payload) => {
+          markVisibleActivity();
+          return await opts.onPartialReply?.(payload);
+        },
+        onReasoningStream: async (payload) => {
+          markVisibleActivity();
+          return await opts.onReasoningStream?.(payload);
+        },
+        onBlockReply: async (payload, context) => {
+          markVisibleActivity();
+          return await opts.onBlockReply?.(payload, context);
+        },
+        onToolResult: async (payload) => {
+          markVisibleActivity();
+          return await opts.onToolResult?.(payload);
+        },
+      }
+    : undefined;
   try {
     const runStartedAt = Date.now();
     const runOutcome = await runAgentTurnWithFallback({
       commandBody,
       followupRun,
       sessionCtx,
-      opts,
+      opts: optsWithVisibilityTracking,
       typingSignals,
       blockReplyPipeline,
       blockStreamingEnabled,
@@ -328,6 +528,7 @@ export async function runReplyAgent(params: {
       activeSessionStore,
       storePath,
       resolvedVerboseLevel,
+      onRunEvent: updateProgressStatusFromEvent,
     });
 
     if (runOutcome.kind === "final") {
@@ -523,6 +724,11 @@ export async function runReplyAgent(params: {
       runFollowupTurn,
     );
   } finally {
+    progressStopped = true;
+    if (progressTimer) {
+      clearInterval(progressTimer);
+      progressTimer = undefined;
+    }
     blockReplyPipeline?.stop();
     typing.markRunComplete();
   }

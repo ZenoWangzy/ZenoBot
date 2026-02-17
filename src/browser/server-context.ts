@@ -318,18 +318,88 @@ function createProfileContext(
         if (await isHttpReachable(1200)) {
           // continue: we still need the extension to connect for CDP websocket.
         } else {
-          throw new Error(
-            `Chrome extension relay for profile "${profile.name}" is not reachable at ${profile.cdpUrl}.`,
-          );
+          // Relay server started but Chrome may not be running.
+          // Attempt to launch Chrome with the extension profile.
+          if (!current.resolved.attachOnly) {
+            try {
+              const launched = await launchOpenClawChrome(current.resolved, profile);
+              attachRunning(launched);
+              // Wait a bit for Chrome to start and extension to connect
+              const waitUntil = Date.now() + 5000;
+              while (Date.now() < waitUntil) {
+                if (await isHttpReachable(600)) {
+                  break;
+                }
+                await new Promise((resolve) => setTimeout(resolve, 250));
+              }
+            } catch (launchErr) {
+              throw new Error(
+                `Chrome extension relay for profile "${profile.name}" is not reachable at ${profile.cdpUrl} and Chrome failed to start: ${String(launchErr)}`,
+              );
+            }
+          } else {
+            throw new Error(
+              `Chrome extension relay for profile "${profile.name}" is not reachable at ${profile.cdpUrl}.`,
+            );
+          }
         }
       }
 
-      if (await isReachable(600)) {
-        return;
+      const waitUntil = Date.now() + 15000; // Increased from 8s to 15s for better reliability
+      let lastStatus = "";
+      while (Date.now() < waitUntil) {
+        if (await isReachable(600)) {
+          return;
+        }
+        // Check if extension is connected via relay server status endpoint
+        try {
+          const statusUrl = `${profile.cdpUrl}/extension/status`;
+          const res = await fetch(statusUrl, { signal: AbortSignal.timeout(500) });
+          if (res.ok) {
+            const status = (await res.json()) as { connected?: boolean };
+            if (status.connected === false && lastStatus !== "not_connected") {
+              lastStatus = "not_connected";
+              // Extension not connected - Chrome might not be running
+              // Try to launch Chrome if not already running
+              if (!profileState.running && !current.resolved.attachOnly) {
+                try {
+                  const launched = await launchOpenClawChrome(current.resolved, profile);
+                  attachRunning(launched);
+                } catch {
+                  // Ignore launch errors, we'll try again or timeout
+                }
+              }
+            }
+          }
+        } catch {
+          // Ignore status check errors
+        }
+        await new Promise((resolve) => setTimeout(resolve, 500));
       }
-      // Relay server is up, but no attached tab yet. Prompt user to attach.
+
+      // Final attempt: if extension still not connected, provide helpful error
+      const extStatus = await (async () => {
+        try {
+          const res = await fetch(`${profile.cdpUrl}/extension/status`, {
+            signal: AbortSignal.timeout(500),
+          });
+          return (await res.json()) as { connected?: boolean };
+        } catch {
+          return { connected: false };
+        }
+      })();
+
+      if (extStatus.connected === false) {
+        throw new Error(
+          `Chrome extension relay is running, but the extension is not connected yet for profile \"${profile.name}\". ` +
+            `Please ensure Chrome is running with the OpenClaw extension installed, ` +
+            `or run: openclaw browser start --profile=${profile.name}`,
+        );
+      }
+
       throw new Error(
-        `Chrome extension relay is running, but no tab is connected. Click the OpenClaw Chrome extension icon on a tab to attach it (profile "${profile.name}").`,
+        `Chrome extension relay for profile \"${profile.name}\" is not reachable. ` +
+          `CDP WebSocket connection failed.`,
       );
     }
 
@@ -398,12 +468,6 @@ function createProfileContext(
     const profileState = getProfileState();
     const tabs1 = await listTabs();
     if (tabs1.length === 0) {
-      if (profile.driver === "extension") {
-        throw new Error(
-          `tab not found (no attached Chrome tabs for profile "${profile.name}"). ` +
-            "Click the OpenClaw Browser Relay toolbar icon on the tab you want to control (badge ON).",
-        );
-      }
       await openTab("about:blank");
     }
 
