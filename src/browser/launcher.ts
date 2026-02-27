@@ -9,6 +9,8 @@ import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import type { BrowserCdpConfig } from "../config/types.browser.js";
+import type { ResolvedBrowserConfig } from "./config.js";
 import { createSubsystemLogger } from "../logging/subsystem.js";
 import { CONFIG_DIR } from "../utils.js";
 import { getHeadersWithAuth, normalizeCdpWsUrl } from "./cdp.js";
@@ -16,9 +18,7 @@ import {
   type BrowserExecutable,
   resolveBrowserExecutableForPlatform,
 } from "./chrome.executables.js";
-import type { ResolvedBrowserConfig } from "./config.js";
 import { DEFAULT_OPENCLAW_BROWSER_PROFILE_NAME } from "./constants.js";
-import type { BrowserCdpConfig } from "../config/types.browser.js";
 
 const log = createSubsystemLogger("browser").child("launcher");
 
@@ -110,9 +110,7 @@ export async function detectExistingCDP(port = DEFAULT_CDP_PORT): Promise<CDPInf
  * Find Chrome executable on the system.
  * Returns the first supported browser found.
  */
-export function findChromeExecutable(
-  config?: ResolvedBrowserConfig,
-): BrowserExecutable | null {
+export function findChromeExecutable(config?: ResolvedBrowserConfig): BrowserExecutable | null {
   return resolveBrowserExecutableForPlatform(
     config ?? ({} as ResolvedBrowserConfig),
     process.platform,

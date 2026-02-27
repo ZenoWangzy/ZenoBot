@@ -72,7 +72,7 @@ describe("buildWatchdogScript", () => {
     expect(script).toContain("@echo off");
     expect(script).toContain("cd /d");
     expect(script).toContain("C:\\Projects\\openclaw");
-    expect(script).toContain("set NODE_ENV=production");
+    expect(script).toContain('set "NODE_ENV=production"');
     expect(script).toContain("node gateway.js --port 18789");
   });
 

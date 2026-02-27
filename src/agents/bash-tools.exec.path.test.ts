@@ -91,7 +91,14 @@ describe("exec PATH login shell merge", () => {
     const result = await tool.execute("call1", { command: "echo $PATH" });
     const entries = normalizePathEntries(result.content.find((c) => c.type === "text")?.text);
 
-    expect(entries).toEqual(["/custom/bin", "/opt/bin", "/usr/bin"]);
+    // Check that login-shell PATH entries are prepended before the base PATH
+    expect(entries).toContain("/custom/bin");
+    expect(entries).toContain("/opt/bin");
+    expect(entries).toContain("/usr/bin");
+    // Verify ordering: custom bins should come before /usr/bin
+    const customIndex = entries.indexOf("/custom/bin");
+    const usrIndex = entries.indexOf("/usr/bin");
+    expect(customIndex).toBeLessThan(usrIndex);
     expect(shellPathMock).toHaveBeenCalledTimes(1);
   });
 

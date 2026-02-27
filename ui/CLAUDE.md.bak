@@ -1,0 +1,83 @@
+[根目录](../CLAUDE.md) > **ui**
+
+---
+
+# UI 模块
+
+> Web 控制界面
+
+---
+
+## 变更记录 (Changelog)
+
+### 2026-02-11
+- 创建模块文档
+
+---
+
+## 模块职责
+
+`ui/` 是 OpenClaw 的 Web 控制界面，使用 Lit 和 Vite 构建。
+
+---
+
+## 入口与启动
+
+### 主要入口
+- `ui/src/main.ts` - 应用入口
+
+### 启动命令
+```bash
+# 开发模式
+pnpm ui:dev
+
+# 构建
+pnpm ui:build
+```
+
+### 关键文件
+
+| 文件 | 描述 |
+|------|------|
+| `ui/src/main.ts` | 应用入口 |
+| `ui/src/ui/app.ts` | 主应用组件 |
+| `ui/vite.config.ts` | Vite 配置 |
+
+---
+
+## 对外接口
+
+### HTTP 端点
+- 开发服务器: `http://localhost:5173`
+- 生产构建: 打包到 `dist/`
+
+---
+
+## 关键依赖与配置
+
+### 外部依赖
+```json
+{
+  "lit": "^3.3.2",
+  "vite": "7.3.1",
+  "marked": "^17.0.1",
+  "dompurify": "^3.3.1"
+}
+```
+
+---
+
+## 相关文件清单
+
+```
+ui/
+├── src/
+│   ├── main.ts             # 应用入口
+│   └── ui/
+│       ├── app.ts          # 主应用
+│       ├── controllers/    # 控制器
+│       ├── views/          # 视图
+│       └── components/     # 组件
+├── vite.config.ts          # Vite 配置
+└── package.json            # 包配置
+```

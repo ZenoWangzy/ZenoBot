@@ -1,3 +1,17 @@
+import type {
+  ChannelCapabilities,
+  ChannelCommandAdapter,
+  ChannelConfigAdapter,
+  ChannelElevatedAdapter,
+  ChannelGroupAdapter,
+  ChannelId,
+  ChannelAgentPromptAdapter,
+  ChannelMentionAdapter,
+  ChannelPlugin,
+  ChannelThreadingContext,
+  ChannelThreadingAdapter,
+  ChannelThreadingToolContext,
+} from "./plugins/types.js";
 import {
   resolveChannelGroupRequireMention,
   resolveChannelGroupToolsPolicy,
@@ -28,20 +42,6 @@ import {
 } from "./plugins/group-mentions.js";
 import { normalizeSignalMessagingTarget } from "./plugins/normalize/signal.js";
 import { normalizeWhatsAppAllowFromEntries } from "./plugins/normalize/whatsapp.js";
-import type {
-  ChannelCapabilities,
-  ChannelCommandAdapter,
-  ChannelConfigAdapter,
-  ChannelElevatedAdapter,
-  ChannelGroupAdapter,
-  ChannelId,
-  ChannelAgentPromptAdapter,
-  ChannelMentionAdapter,
-  ChannelPlugin,
-  ChannelThreadingContext,
-  ChannelThreadingAdapter,
-  ChannelThreadingToolContext,
-} from "./plugins/types.js";
 import {
   resolveWhatsAppGroupIntroHint,
   resolveWhatsAppMentionStripPatterns,

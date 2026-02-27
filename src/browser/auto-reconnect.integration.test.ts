@@ -11,24 +11,15 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import {
   detectExistingCDP,
-  launchWithCDP,
   resolveCdpConfig,
-  terminateChrome,
-  DEFAULT_CDP_PORT,
-  type CDPInfo,
   type ChromeProcess,
 } from "./launcher.js";
 import {
-  ConnectionWatchdog,
-  createWatchdog,
-  DEFAULT_WATCHDOG_CONFIG,
-} from "./watchdog.js";
-import {
-  SessionStateRecovery,
   createSessionStateRecovery,
   DEFAULT_TIMEOUT_CONFIG,
   type SessionSnapshot,
 } from "./recovery.js";
+import { ConnectionWatchdog, createWatchdog, DEFAULT_WATCHDOG_CONFIG } from "./watchdog.js";
 
 // Mock fetch for CDP detection
 const mockFetch = vi.fn();

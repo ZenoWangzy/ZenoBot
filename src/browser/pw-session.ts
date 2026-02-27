@@ -8,19 +8,19 @@ import type {
 } from "playwright-core";
 import { chromium } from "playwright-core";
 import type { BrowserConnectionMode, BrowserWatchdogConfig } from "../config/types.browser.js";
-import { formatErrorMessage } from "../infra/errors.js";
 import type { SsrFPolicy } from "../infra/net/ssrf.js";
+import { formatErrorMessage } from "../infra/errors.js";
 import { appendCdpPath, fetchJson, getHeadersWithAuth, withCdpSocket } from "./cdp.helpers.js";
 import { normalizeCdpWsUrl } from "./cdp.js";
 import { getChromeWebSocketUrl } from "./chrome.js";
 import { detectExistingCDP, launchWithCDP, type ChromeProcess } from "./launcher.js";
-import { SessionStateRecovery, createSessionStateRecovery } from "./recovery.js";
-import { ConnectionWatchdog, createWatchdog } from "./watchdog.js";
 import {
   assertBrowserNavigationAllowed,
   assertBrowserNavigationResultAllowed,
   withBrowserNavigationPolicy,
 } from "./navigation-guard.js";
+import { SessionStateRecovery, createSessionStateRecovery } from "./recovery.js";
+import { ConnectionWatchdog, createWatchdog } from "./watchdog.js";
 
 export type BrowserConsoleMessage = {
   type: string;

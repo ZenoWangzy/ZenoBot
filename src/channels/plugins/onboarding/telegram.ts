@@ -1,5 +1,7 @@
-import { formatCliCommand } from "../../../cli/command-format.js";
 import type { OpenClawConfig } from "../../../config/config.js";
+import type { WizardPrompter } from "../../../wizard/prompts.js";
+import type { ChannelOnboardingAdapter, ChannelOnboardingDmPolicy } from "../onboarding-types.js";
+import { formatCliCommand } from "../../../cli/command-format.js";
 import { DEFAULT_ACCOUNT_ID } from "../../../routing/session-key.js";
 import {
   listTelegramAccountIds,
@@ -7,9 +9,7 @@ import {
   resolveTelegramAccount,
 } from "../../../telegram/accounts.js";
 import { formatDocsLink } from "../../../terminal/links.js";
-import type { WizardPrompter } from "../../../wizard/prompts.js";
 import { fetchTelegramChatId } from "../../telegram/api.js";
-import type { ChannelOnboardingAdapter, ChannelOnboardingDmPolicy } from "../onboarding-types.js";
 import {
   applySingleTokenPromptResult,
   patchChannelConfigForAccount,

@@ -1,9 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import {
-  ConnectionWatchdog,
-  DEFAULT_WATCHDOG_CONFIG,
-  createWatchdog,
-} from "./watchdog.js";
+import { ConnectionWatchdog, DEFAULT_WATCHDOG_CONFIG, createWatchdog } from "./watchdog.js";
+import type { ChromeProcess } from "./launcher.js";
 
 // Mock detectExistingCDP
 vi.mock("./launcher.js", () => ({
@@ -111,7 +108,7 @@ describe("watchdog", () => {
 
     it("restarts browser after max retries", async () => {
       const restartCallback = vi.fn().mockResolvedValue({
-        proc: {} as any,
+        proc: {} as unknown as ChromeProcess["proc"],
         pid: 12345,
         cdpPort: 9222,
         userDataDir: "/tmp",
@@ -231,11 +228,11 @@ describe("watchdog", () => {
       expect(watchdog.getBrowserProcess()).toBeNull();
 
       const process = {
-        proc: {} as any,
+        proc: {} as unknown as ChromeProcess["proc"],
         pid: 12345,
         cdpPort: 9222,
         userDataDir: "/tmp",
-        executable: { kind: "chrome", path: "/usr/bin/chrome" },
+        executable: { kind: "chrome" as const, path: "/usr/bin/chrome" },
         startedAt: Date.now(),
       };
 

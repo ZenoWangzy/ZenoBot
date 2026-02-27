@@ -6,6 +6,7 @@
 ## Problem
 
 On Windows, the OpenClaw gateway process does not automatically restart after:
+
 1. Process crash
 2. Network disconnection recovery
 3. System reboot (only starts once at login)
@@ -47,11 +48,11 @@ Repeat every 1min ◄──────┘
 
 ## File Changes
 
-| File | Change |
-|------|--------|
-| `src/daemon/schtasks.ts` | Add repeat trigger (`/RI 1`) and call watchdog |
+| File                     | Change                                                   |
+| ------------------------ | -------------------------------------------------------- |
+| `src/daemon/schtasks.ts` | Add repeat trigger (`/RI 1`) and call watchdog           |
 | `src/daemon/watchdog.ts` | New file - port check and gateway startup (Windows only) |
-| `src/daemon/index.ts` | Export watchdog if needed |
+| `src/daemon/index.ts`    | Export watchdog if needed                                |
 
 ## Implementation Details
 
@@ -84,7 +85,7 @@ async function isGatewayRunning(port: number): Promise<boolean> {
 
 // Start gateway if not running
 async function ensureGatewayRunning(): Promise<void> {
-  if (!await isGatewayRunning(port)) {
+  if (!(await isGatewayRunning(port))) {
     // Spawn gateway process
   }
 }
@@ -105,6 +106,7 @@ macOS LaunchAgent code remains completely untouched.
 ## Discord Connection
 
 No changes needed - existing code already has:
+
 - 50 reconnection attempts
 - Exponential backoff
 - Connection stall detection

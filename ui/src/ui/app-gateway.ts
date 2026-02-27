@@ -1,9 +1,20 @@
+import type { EventLogEntry } from "./app-events.ts";
+import type { OpenClawApp } from "./app.ts";
+import type { ExecApprovalRequest } from "./controllers/exec-approval.ts";
+import type { Tab } from "./navigation.ts";
+import type { UiSettings } from "./storage.ts";
+import type {
+  AgentsListResult,
+  PresenceEntry,
+  HealthSnapshot,
+  StatusSummary,
+  UpdateAvailable,
+} from "./types.ts";
 import {
   GATEWAY_EVENT_UPDATE_AVAILABLE,
   type GatewayUpdateAvailableEventPayload,
 } from "../../../src/gateway/events.js";
 import { CHAT_SESSIONS_ACTIVE_MINUTES, flushChatQueueForEvent } from "./app-chat.ts";
-import type { EventLogEntry } from "./app-events.ts";
 import {
   applySettings,
   loadCron,
@@ -11,14 +22,12 @@ import {
   setLastActiveSessionKey,
 } from "./app-settings.ts";
 import { handleAgentEvent, resetToolStream, type AgentEventPayload } from "./app-tool-stream.ts";
-import type { OpenClawApp } from "./app.ts";
 import { shouldReloadHistoryForFinalEvent } from "./chat-event-reload.ts";
 import { loadAgents, loadToolsCatalog } from "./controllers/agents.ts";
 import { loadAssistantIdentity } from "./controllers/assistant-identity.ts";
 import { loadChatHistory } from "./controllers/chat.ts";
 import { handleChatEvent, type ChatEventPayload } from "./controllers/chat.ts";
 import { loadDevices } from "./controllers/devices.ts";
-import type { ExecApprovalRequest } from "./controllers/exec-approval.ts";
 import {
   addExecApproval,
   parseExecApprovalRequested,
@@ -33,15 +42,6 @@ import {
   type GatewayHelloOk,
 } from "./gateway.ts";
 import { GatewayBrowserClient } from "./gateway.ts";
-import type { Tab } from "./navigation.ts";
-import type { UiSettings } from "./storage.ts";
-import type {
-  AgentsListResult,
-  PresenceEntry,
-  HealthSnapshot,
-  StatusSummary,
-  UpdateAvailable,
-} from "./types.ts";
 
 type GatewayHost = {
   settings: UiSettings;
