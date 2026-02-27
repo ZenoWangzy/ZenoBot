@@ -1,5 +1,7 @@
 import net from "node:net";
 import path from "node:path";
+import { quoteCmdScriptArg } from "./cmd-argv.js";
+import { renderCmdSetAssignment } from "./cmd-set.js";
 
 /**
  * Check if a port is being listened on (Windows only).
@@ -51,16 +53,6 @@ export function resolveWatchdogScriptPath(env: Record<string, string | undefined
   return path.join(home, `.openclaw${suffix}`, "gateway-watchdog.cmd");
 }
 
-/**
- * Quote a command argument for Windows batch script if needed.
- */
-function quoteCmdArg(value: string): string {
-  if (!/[ \t"]/g.test(value)) {
-    return value;
-  }
-  return `"${value.replace(/"/g, '\\"')}"`;
-}
-
 export type WatchdogScriptParams = {
   programArguments: string[];
   workingDirectory?: string;
@@ -76,14 +68,14 @@ export function buildWatchdogScript(params: WatchdogScriptParams): string {
 
   // Change to working directory
   if (params.workingDirectory) {
-    lines.push(`cd /d ${quoteCmdArg(params.workingDirectory)}`);
+    lines.push(`cd /d ${quoteCmdScriptArg(params.workingDirectory)}`);
   }
 
-  // Set environment variables
+  // Set environment variables using proper escaping
   if (params.environment) {
     for (const [key, value] of Object.entries(params.environment)) {
       if (value) {
-        lines.push(`set ${key}=${value}`);
+        lines.push(renderCmdSetAssignment(key, value));
       }
     }
   }
@@ -105,7 +97,7 @@ export function buildWatchdogScript(params: WatchdogScriptParams): string {
   // Start gateway
   lines.push("");
   lines.push("rem Gateway not running, start it");
-  const command = params.programArguments.map(quoteCmdArg).join(" ");
+  const command = params.programArguments.map(quoteCmdScriptArg).join(" ");
   lines.push(`start /b "" ${command}`);
 
   return `${lines.join("\r\n")}\r\n`;

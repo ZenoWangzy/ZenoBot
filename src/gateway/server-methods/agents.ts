@@ -1,6 +1,6 @@
+import { constants as fsConstants } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { GatewayRequestHandlers, RespondFn } from "./types.js";
 import {
   listAgentIds,
   resolveAgentDir,
@@ -17,6 +17,7 @@ import {
   DEFAULT_TOOLS_FILENAME,
   DEFAULT_USER_FILENAME,
   ensureAgentWorkspace,
+  isWorkspaceOnboardingCompleted,
 } from "../../agents/workspace.js";
 import { movePathToTrash } from "../../browser/trash.js";
 import {
@@ -27,6 +28,9 @@ import {
 } from "../../commands/agents.config.js";
 import { loadConfig, writeConfigFile } from "../../config/config.js";
 import { resolveSessionTranscriptsDirForAgent } from "../../config/sessions/paths.js";
+import { sameFileIdentity } from "../../infra/file-identity.js";
+import { SafeOpenError, readLocalFileSafely } from "../../infra/fs-safe.js";
+import { isNotFoundPathError, isPathInside } from "../../infra/path-guards.js";
 import { DEFAULT_AGENT_ID, normalizeAgentId } from "../../routing/session-key.js";
 import { resolveUserPath } from "../../utils.js";
 import {
@@ -42,6 +46,7 @@ import {
   validateAgentsUpdateParams,
 } from "../protocol/index.js";
 import { listAgentsForGateway } from "../session-utils.js";
+import type { GatewayRequestHandlers, RespondFn } from "./types.js";
 
 const BOOTSTRAP_FILE_NAMES = [
   DEFAULT_AGENTS_FILENAME,
@@ -52,6 +57,9 @@ const BOOTSTRAP_FILE_NAMES = [
   DEFAULT_HEARTBEAT_FILENAME,
   DEFAULT_BOOTSTRAP_FILENAME,
 ] as const;
+const BOOTSTRAP_FILE_NAMES_POST_ONBOARDING = BOOTSTRAP_FILE_NAMES.filter(
+  (name) => name !== DEFAULT_BOOTSTRAP_FILENAME,
+);
 
 const MEMORY_FILE_NAMES = [DEFAULT_MEMORY_FILENAME, DEFAULT_MEMORY_ALT_FILENAME] as const;
 
@@ -93,10 +101,113 @@ type FileMeta = {
   updatedAtMs: number;
 };
 
-async function statFile(filePath: string): Promise<FileMeta | null> {
+type ResolvedAgentWorkspaceFilePath =
+  | {
+      kind: "ready";
+      requestPath: string;
+      ioPath: string;
+      workspaceReal: string;
+    }
+  | {
+      kind: "missing";
+      requestPath: string;
+      ioPath: string;
+      workspaceReal: string;
+    }
+  | {
+      kind: "invalid";
+      requestPath: string;
+      reason: string;
+    };
+
+const SUPPORTS_NOFOLLOW = process.platform !== "win32" && "O_NOFOLLOW" in fsConstants;
+const OPEN_WRITE_FLAGS =
+  fsConstants.O_WRONLY |
+  fsConstants.O_CREAT |
+  fsConstants.O_TRUNC |
+  (SUPPORTS_NOFOLLOW ? fsConstants.O_NOFOLLOW : 0);
+
+async function resolveWorkspaceRealPath(workspaceDir: string): Promise<string> {
   try {
-    const stat = await fs.stat(filePath);
-    if (!stat.isFile()) {
+    return await fs.realpath(workspaceDir);
+  } catch {
+    return path.resolve(workspaceDir);
+  }
+}
+
+async function resolveAgentWorkspaceFilePath(params: {
+  workspaceDir: string;
+  name: string;
+  allowMissing: boolean;
+}): Promise<ResolvedAgentWorkspaceFilePath> {
+  const requestPath = path.join(params.workspaceDir, params.name);
+  const workspaceReal = await resolveWorkspaceRealPath(params.workspaceDir);
+  const candidatePath = path.resolve(workspaceReal, params.name);
+  if (!isPathInside(workspaceReal, candidatePath)) {
+    return { kind: "invalid", requestPath, reason: "path escapes workspace root" };
+  }
+
+  let candidateLstat: Awaited<ReturnType<typeof fs.lstat>>;
+  try {
+    candidateLstat = await fs.lstat(candidatePath);
+  } catch (err) {
+    if (isNotFoundPathError(err)) {
+      if (params.allowMissing) {
+        return { kind: "missing", requestPath, ioPath: candidatePath, workspaceReal };
+      }
+      return { kind: "invalid", requestPath, reason: "file not found" };
+    }
+    throw err;
+  }
+
+  if (candidateLstat.isSymbolicLink()) {
+    let targetReal: string;
+    try {
+      targetReal = await fs.realpath(candidatePath);
+    } catch (err) {
+      if (isNotFoundPathError(err)) {
+        if (params.allowMissing) {
+          return { kind: "missing", requestPath, ioPath: candidatePath, workspaceReal };
+        }
+        return { kind: "invalid", requestPath, reason: "symlink target not found" };
+      }
+      throw err;
+    }
+    if (!isPathInside(workspaceReal, targetReal)) {
+      return { kind: "invalid", requestPath, reason: "symlink target escapes workspace root" };
+    }
+    try {
+      const targetStat = await fs.stat(targetReal);
+      if (!targetStat.isFile()) {
+        return { kind: "invalid", requestPath, reason: "symlink target is not a file" };
+      }
+    } catch (err) {
+      if (isNotFoundPathError(err) && params.allowMissing) {
+        return { kind: "missing", requestPath, ioPath: targetReal, workspaceReal };
+      }
+      throw err;
+    }
+    return { kind: "ready", requestPath, ioPath: targetReal, workspaceReal };
+  }
+
+  if (!candidateLstat.isFile()) {
+    return { kind: "invalid", requestPath, reason: "path is not a regular file" };
+  }
+
+  const candidateReal = await fs.realpath(candidatePath).catch(() => candidatePath);
+  if (!isPathInside(workspaceReal, candidateReal)) {
+    return { kind: "invalid", requestPath, reason: "resolved file escapes workspace root" };
+  }
+  return { kind: "ready", requestPath, ioPath: candidateReal, workspaceReal };
+}
+
+async function statFileSafely(filePath: string): Promise<FileMeta | null> {
+  try {
+    const [stat, lstat] = await Promise.all([fs.stat(filePath), fs.lstat(filePath)]);
+    if (lstat.isSymbolicLink() || !stat.isFile()) {
+      return null;
+    }
+    if (!sameFileIdentity(stat, lstat)) {
       return null;
     }
     return {
@@ -108,7 +219,23 @@ async function statFile(filePath: string): Promise<FileMeta | null> {
   }
 }
 
-async function listAgentFiles(workspaceDir: string) {
+async function writeFileSafely(filePath: string, content: string): Promise<void> {
+  const handle = await fs.open(filePath, OPEN_WRITE_FLAGS, 0o600);
+  try {
+    const [stat, lstat] = await Promise.all([handle.stat(), fs.lstat(filePath)]);
+    if (lstat.isSymbolicLink() || !stat.isFile()) {
+      throw new Error("unsafe file path");
+    }
+    if (!sameFileIdentity(stat, lstat)) {
+      throw new Error("path changed during write");
+    }
+    await handle.writeFile(content, "utf-8");
+  } finally {
+    await handle.close().catch(() => {});
+  }
+}
+
+async function listAgentFiles(workspaceDir: string, options?: { hideBootstrap?: boolean }) {
   const files: Array<{
     name: string;
     path: string;
@@ -117,9 +244,22 @@ async function listAgentFiles(workspaceDir: string) {
     updatedAtMs?: number;
   }> = [];
 
-  for (const name of BOOTSTRAP_FILE_NAMES) {
-    const filePath = path.join(workspaceDir, name);
-    const meta = await statFile(filePath);
+  const bootstrapFileNames = options?.hideBootstrap
+    ? BOOTSTRAP_FILE_NAMES_POST_ONBOARDING
+    : BOOTSTRAP_FILE_NAMES;
+  for (const name of bootstrapFileNames) {
+    const resolved = await resolveAgentWorkspaceFilePath({
+      workspaceDir,
+      name,
+      allowMissing: true,
+    });
+    const filePath = resolved.requestPath;
+    const meta =
+      resolved.kind === "ready"
+        ? await statFileSafely(resolved.ioPath)
+        : resolved.kind === "missing"
+          ? null
+          : null;
     if (meta) {
       files.push({
         name,
@@ -133,29 +273,43 @@ async function listAgentFiles(workspaceDir: string) {
     }
   }
 
-  const primaryMemoryPath = path.join(workspaceDir, DEFAULT_MEMORY_FILENAME);
-  const primaryMeta = await statFile(primaryMemoryPath);
+  const primaryResolved = await resolveAgentWorkspaceFilePath({
+    workspaceDir,
+    name: DEFAULT_MEMORY_FILENAME,
+    allowMissing: true,
+  });
+  const primaryMeta =
+    primaryResolved.kind === "ready" ? await statFileSafely(primaryResolved.ioPath) : null;
   if (primaryMeta) {
     files.push({
       name: DEFAULT_MEMORY_FILENAME,
-      path: primaryMemoryPath,
+      path: primaryResolved.requestPath,
       missing: false,
       size: primaryMeta.size,
       updatedAtMs: primaryMeta.updatedAtMs,
     });
   } else {
-    const altMemoryPath = path.join(workspaceDir, DEFAULT_MEMORY_ALT_FILENAME);
-    const altMeta = await statFile(altMemoryPath);
+    const altMemoryResolved = await resolveAgentWorkspaceFilePath({
+      workspaceDir,
+      name: DEFAULT_MEMORY_ALT_FILENAME,
+      allowMissing: true,
+    });
+    const altMeta =
+      altMemoryResolved.kind === "ready" ? await statFileSafely(altMemoryResolved.ioPath) : null;
     if (altMeta) {
       files.push({
         name: DEFAULT_MEMORY_ALT_FILENAME,
-        path: altMemoryPath,
+        path: altMemoryResolved.requestPath,
         missing: false,
         size: altMeta.size,
         updatedAtMs: altMeta.updatedAtMs,
       });
     } else {
-      files.push({ name: DEFAULT_MEMORY_FILENAME, path: primaryMemoryPath, missing: true });
+      files.push({
+        name: DEFAULT_MEMORY_FILENAME,
+        path: primaryResolved.requestPath,
+        missing: true,
+      });
     }
   }
 
@@ -417,7 +571,13 @@ export const agentsHandlers: GatewayRequestHandlers = {
       return;
     }
     const workspaceDir = resolveAgentWorkspaceDir(cfg, agentId);
-    const files = await listAgentFiles(workspaceDir);
+    let hideBootstrap = false;
+    try {
+      hideBootstrap = await isWorkspaceOnboardingCompleted(workspaceDir);
+    } catch {
+      // Fall back to showing BOOTSTRAP if workspace state cannot be read.
+    }
+    const files = await listAgentFiles(workspaceDir, { hideBootstrap });
     respond(true, { agentId, workspace: workspaceDir, files }, undefined);
   },
   "agents.files.get": async ({ params, respond }) => {
@@ -440,8 +600,23 @@ export const agentsHandlers: GatewayRequestHandlers = {
     }
     const { agentId, workspaceDir, name } = resolved;
     const filePath = path.join(workspaceDir, name);
-    const meta = await statFile(filePath);
-    if (!meta) {
+    const resolvedPath = await resolveAgentWorkspaceFilePath({
+      workspaceDir,
+      name,
+      allowMissing: true,
+    });
+    if (resolvedPath.kind === "invalid") {
+      respond(
+        false,
+        undefined,
+        errorShape(
+          ErrorCodes.INVALID_REQUEST,
+          `unsafe workspace file "${name}" (${resolvedPath.reason})`,
+        ),
+      );
+      return;
+    }
+    if (resolvedPath.kind === "missing") {
       respond(
         true,
         {
@@ -453,7 +628,29 @@ export const agentsHandlers: GatewayRequestHandlers = {
       );
       return;
     }
-    const content = await fs.readFile(filePath, "utf-8");
+    let safeRead: Awaited<ReturnType<typeof readLocalFileSafely>>;
+    try {
+      safeRead = await readLocalFileSafely({ filePath: resolvedPath.ioPath });
+    } catch (err) {
+      if (err instanceof SafeOpenError && err.code === "not-found") {
+        respond(
+          true,
+          {
+            agentId,
+            workspace: workspaceDir,
+            file: { name, path: filePath, missing: true },
+          },
+          undefined,
+        );
+        return;
+      }
+      respond(
+        false,
+        undefined,
+        errorShape(ErrorCodes.INVALID_REQUEST, `unsafe workspace file "${name}"`),
+      );
+      return;
+    }
     respond(
       true,
       {
@@ -463,9 +660,9 @@ export const agentsHandlers: GatewayRequestHandlers = {
           name,
           path: filePath,
           missing: false,
-          size: meta.size,
-          updatedAtMs: meta.updatedAtMs,
-          content,
+          size: safeRead.stat.size,
+          updatedAtMs: Math.floor(safeRead.stat.mtimeMs),
+          content: safeRead.buffer.toString("utf-8"),
         },
       },
       undefined,
@@ -492,9 +689,34 @@ export const agentsHandlers: GatewayRequestHandlers = {
     const { agentId, workspaceDir, name } = resolved;
     await fs.mkdir(workspaceDir, { recursive: true });
     const filePath = path.join(workspaceDir, name);
+    const resolvedPath = await resolveAgentWorkspaceFilePath({
+      workspaceDir,
+      name,
+      allowMissing: true,
+    });
+    if (resolvedPath.kind === "invalid") {
+      respond(
+        false,
+        undefined,
+        errorShape(
+          ErrorCodes.INVALID_REQUEST,
+          `unsafe workspace file "${name}" (${resolvedPath.reason})`,
+        ),
+      );
+      return;
+    }
     const content = String(params.content ?? "");
-    await fs.writeFile(filePath, content, "utf-8");
-    const meta = await statFile(filePath);
+    try {
+      await writeFileSafely(resolvedPath.ioPath, content);
+    } catch {
+      respond(
+        false,
+        undefined,
+        errorShape(ErrorCodes.INVALID_REQUEST, `unsafe workspace file "${name}"`),
+      );
+      return;
+    }
+    const meta = await statFileSafely(resolvedPath.ioPath);
     respond(
       true,
       {

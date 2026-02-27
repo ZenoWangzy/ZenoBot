@@ -58,6 +58,22 @@ export type BrowserSnapshotDefaults = {
   /** Default snapshot mode (applies when mode is not provided). */
   mode?: "efficient";
 };
+export type BrowserSsrFPolicyConfig = {
+  /** Legacy alias for private-network access. Prefer dangerouslyAllowPrivateNetwork. */
+  allowPrivateNetwork?: boolean;
+  /** If true, permit browser navigation to private/internal networks. Default: true */
+  dangerouslyAllowPrivateNetwork?: boolean;
+  /**
+   * Explicitly allowed hostnames (exact-match), including blocked names like localhost.
+   * Example: ["localhost", "metadata.internal"]
+   */
+  allowedHostnames?: string[];
+  /**
+   * Hostname allowlist patterns for browser navigation.
+   * Supports exact hosts and "*.example.com" wildcard subdomains.
+   */
+  hostnameAllowlist?: string[];
+};
 export type BrowserConfig = {
   enabled?: boolean;
   /** If false, disable browser act:evaluate (arbitrary JS). Default: true */
@@ -92,4 +108,12 @@ export type BrowserConfig = {
   watchdog?: BrowserWatchdogConfig;
   /** Timeout configuration for browser operations. */
   timeouts?: BrowserTimeoutConfig;
+  /** SSRF policy for browser navigation/open-tab operations. */
+  ssrfPolicy?: BrowserSsrFPolicyConfig;
+  /**
+   * Additional Chrome launch arguments.
+   * Useful for stealth flags, window size overrides, or custom user-agent strings.
+   * Example: ["--window-size=1920,1080", "--disable-infobars"]
+   */
+  extraArgs?: string[];
 };

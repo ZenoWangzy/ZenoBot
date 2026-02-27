@@ -11,7 +11,7 @@ export type ResolvedMemorySearchConfig = {
   enabled: boolean;
   sources: Array<"memory" | "sessions">;
   extraPaths: string[];
-  provider: "openai" | "local" | "gemini" | "voyage" | "auto";
+  provider: "openai" | "local" | "gemini" | "voyage" | "mistral" | "auto";
   remote?: {
     baseUrl?: string;
     apiKey?: string;
@@ -27,7 +27,7 @@ export type ResolvedMemorySearchConfig = {
   experimental: {
     sessionMemory: boolean;
   };
-  fallback: "openai" | "gemini" | "local" | "voyage" | "none";
+  fallback: "openai" | "gemini" | "local" | "voyage" | "mistral" | "none";
   model: string;
   local: {
     modelPath?: string;
@@ -64,6 +64,14 @@ export type ResolvedMemorySearchConfig = {
       vectorWeight: number;
       textWeight: number;
       candidateMultiplier: number;
+      mmr: {
+        enabled: boolean;
+        lambda: number;
+      };
+      temporalDecay: {
+        enabled: boolean;
+        halfLifeDays: number;
+      };
     };
   };
   cache: {
@@ -76,6 +84,7 @@ export type ResolvedMemorySearchConfig = {
 const DEFAULT_OPENAI_MODEL = "text-embedding-3-small";
 const DEFAULT_GEMINI_MODEL = "gemini-embedding-001";
 const DEFAULT_VOYAGE_MODEL = "voyage-4-large";
+const DEFAULT_MISTRAL_MODEL = "mistral-embed";
 const DEFAULT_CHUNK_TOKENS = 400;
 const DEFAULT_CHUNK_OVERLAP = 80;
 const DEFAULT_WATCH_DEBOUNCE_MS = 1500;
@@ -87,6 +96,10 @@ const DEFAULT_HYBRID_ENABLED = true;
 const DEFAULT_HYBRID_VECTOR_WEIGHT = 0.7;
 const DEFAULT_HYBRID_TEXT_WEIGHT = 0.3;
 const DEFAULT_HYBRID_CANDIDATE_MULTIPLIER = 4;
+const DEFAULT_MMR_ENABLED = false;
+const DEFAULT_MMR_LAMBDA = 0.7;
+const DEFAULT_TEMPORAL_DECAY_ENABLED = false;
+const DEFAULT_TEMPORAL_DECAY_HALF_LIFE_DAYS = 30;
 const DEFAULT_CACHE_ENABLED = true;
 const DEFAULT_SOURCES: Array<"memory" | "sessions"> = ["memory"];
 
@@ -144,6 +157,7 @@ function mergeConfig(
     provider === "openai" ||
     provider === "gemini" ||
     provider === "voyage" ||
+    provider === "mistral" ||
     provider === "auto";
   const batch = {
     enabled: overrideRemote?.batch?.enabled ?? defaultRemote?.batch?.enabled ?? false,
@@ -173,7 +187,9 @@ function mergeConfig(
         ? DEFAULT_OPENAI_MODEL
         : provider === "voyage"
           ? DEFAULT_VOYAGE_MODEL
-          : undefined;
+          : provider === "mistral"
+            ? DEFAULT_MISTRAL_MODEL
+            : undefined;
   const model = overrides?.model ?? defaults?.model ?? modelDefault ?? "";
   const local = {
     modelPath: overrides?.local?.modelPath ?? defaults?.local?.modelPath,
@@ -239,6 +255,26 @@ function mergeConfig(
       overrides?.query?.hybrid?.candidateMultiplier ??
       defaults?.query?.hybrid?.candidateMultiplier ??
       DEFAULT_HYBRID_CANDIDATE_MULTIPLIER,
+    mmr: {
+      enabled:
+        overrides?.query?.hybrid?.mmr?.enabled ??
+        defaults?.query?.hybrid?.mmr?.enabled ??
+        DEFAULT_MMR_ENABLED,
+      lambda:
+        overrides?.query?.hybrid?.mmr?.lambda ??
+        defaults?.query?.hybrid?.mmr?.lambda ??
+        DEFAULT_MMR_LAMBDA,
+    },
+    temporalDecay: {
+      enabled:
+        overrides?.query?.hybrid?.temporalDecay?.enabled ??
+        defaults?.query?.hybrid?.temporalDecay?.enabled ??
+        DEFAULT_TEMPORAL_DECAY_ENABLED,
+      halfLifeDays:
+        overrides?.query?.hybrid?.temporalDecay?.halfLifeDays ??
+        defaults?.query?.hybrid?.temporalDecay?.halfLifeDays ??
+        DEFAULT_TEMPORAL_DECAY_HALF_LIFE_DAYS,
+    },
   };
   const cache = {
     enabled: overrides?.cache?.enabled ?? defaults?.cache?.enabled ?? DEFAULT_CACHE_ENABLED,
@@ -253,6 +289,14 @@ function mergeConfig(
   const normalizedVectorWeight = sum > 0 ? vectorWeight / sum : DEFAULT_HYBRID_VECTOR_WEIGHT;
   const normalizedTextWeight = sum > 0 ? textWeight / sum : DEFAULT_HYBRID_TEXT_WEIGHT;
   const candidateMultiplier = clampInt(hybrid.candidateMultiplier, 1, 20);
+  const temporalDecayHalfLifeDays = Math.max(
+    1,
+    Math.floor(
+      Number.isFinite(hybrid.temporalDecay.halfLifeDays)
+        ? hybrid.temporalDecay.halfLifeDays
+        : DEFAULT_TEMPORAL_DECAY_HALF_LIFE_DAYS,
+    ),
+  );
   const deltaBytes = clampInt(sync.sessions.deltaBytes, 0, Number.MAX_SAFE_INTEGER);
   const deltaMessages = clampInt(sync.sessions.deltaMessages, 0, Number.MAX_SAFE_INTEGER);
   const preload = resolvePreloadConfig(overrides?.preload ?? defaults?.preload);
@@ -286,6 +330,16 @@ function mergeConfig(
         vectorWeight: normalizedVectorWeight,
         textWeight: normalizedTextWeight,
         candidateMultiplier,
+        mmr: {
+          enabled: Boolean(hybrid.mmr.enabled),
+          lambda: Number.isFinite(hybrid.mmr.lambda)
+            ? Math.max(0, Math.min(1, hybrid.mmr.lambda))
+            : DEFAULT_MMR_LAMBDA,
+        },
+        temporalDecay: {
+          enabled: Boolean(hybrid.temporalDecay.enabled),
+          halfLifeDays: temporalDecayHalfLifeDays,
+        },
       },
     },
     cache: {
