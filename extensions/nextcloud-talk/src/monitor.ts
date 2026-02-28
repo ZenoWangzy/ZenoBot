@@ -7,11 +7,6 @@ import {
   readRequestBodyWithLimit,
   requestBodyErrorToText,
 } from "openclaw/plugin-sdk";
-import { resolveNextcloudTalkAccount } from "./accounts.js";
-import { handleNextcloudTalkInbound } from "./inbound.js";
-import { createNextcloudTalkReplayGuard } from "./replay-guard.js";
-import { getNextcloudTalkRuntime } from "./runtime.js";
-import { extractNextcloudTalkHeaders, verifyNextcloudTalkSignature } from "./signature.js";
 import type {
   CoreConfig,
   NextcloudTalkInboundMessage,
@@ -19,6 +14,11 @@ import type {
   NextcloudTalkWebhookPayload,
   NextcloudTalkWebhookServerOptions,
 } from "./types.js";
+import { resolveNextcloudTalkAccount } from "./accounts.js";
+import { handleNextcloudTalkInbound } from "./inbound.js";
+import { createNextcloudTalkReplayGuard } from "./replay-guard.js";
+import { getNextcloudTalkRuntime } from "./runtime.js";
+import { extractNextcloudTalkHeaders, verifyNextcloudTalkSignature } from "./signature.js";
 
 const DEFAULT_WEBHOOK_PORT = 8788;
 const DEFAULT_WEBHOOK_HOST = "0.0.0.0";
@@ -276,12 +276,25 @@ export function createNextcloudTalkWebhookServer(opts: NextcloudTalkWebhookServe
     });
   };
 
+  let stopped = false;
   const stop = () => {
-    server.close();
+    if (stopped) {
+      return;
+    }
+    stopped = true;
+    try {
+      server.close();
+    } catch {
+      // ignore close races while shutting down
+    }
   };
 
   if (abortSignal) {
-    abortSignal.addEventListener("abort", stop, { once: true });
+    if (abortSignal.aborted) {
+      stop();
+    } else {
+      abortSignal.addEventListener("abort", stop, { once: true });
+    }
   }
 
   return { server, start, stop };
@@ -384,7 +397,14 @@ export async function monitorNextcloudTalkProvider(
     abortSignal: opts.abortSignal,
   });
 
+  if (opts.abortSignal?.aborted) {
+    return { stop };
+  }
   await start();
+  if (opts.abortSignal?.aborted) {
+    stop();
+    return { stop };
+  }
 
   const publicUrl =
     account.config.webhookPublicUrl ??

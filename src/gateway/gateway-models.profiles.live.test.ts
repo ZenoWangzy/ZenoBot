@@ -1,10 +1,11 @@
+import type { Api, Model } from "@mariozechner/pi-ai";
 import { randomBytes, randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import { createServer } from "node:net";
 import os from "node:os";
 import path from "node:path";
-import type { Api, Model } from "@mariozechner/pi-ai";
 import { describe, it } from "vitest";
+import type { ModelsConfig, OpenClawConfig, ModelProviderConfig } from "../config/types.js";
 import { resolveOpenClawAgentDir } from "../agents/agent-paths.js";
 import { resolveAgentWorkspaceDir } from "../agents/agent-scope.js";
 import {
@@ -22,7 +23,6 @@ import { getApiKeyForModel } from "../agents/model-auth.js";
 import { ensureOpenClawModelsJson } from "../agents/models-config.js";
 import { discoverAuthStorage, discoverModels } from "../agents/pi-model-discovery.js";
 import { loadConfig } from "../config/config.js";
-import type { ModelsConfig, OpenClawConfig, ModelProviderConfig } from "../config/types.js";
 import { isTruthyEnvValue } from "../infra/env.js";
 import { DEFAULT_AGENT_ID } from "../routing/session-key.js";
 import { GATEWAY_CLIENT_MODES, GATEWAY_CLIENT_NAMES } from "../utils/message-channel.js";
@@ -40,6 +40,11 @@ const THINKING_LEVEL = "high";
 const THINKING_TAG_RE = /<\s*\/?\s*(?:think(?:ing)?|thought|antthinking)\s*>/i;
 const FINAL_TAG_RE = /<\s*\/?\s*final\s*>/i;
 const ANTHROPIC_MAGIC_STRING_TRIGGER_REFUSAL = "ANTHROPIC_MAGIC_STRING_TRIGGER_REFUSAL";
+const GATEWAY_LIVE_DEFAULT_TIMEOUT_MS = 20 * 60 * 1000;
+const GATEWAY_LIVE_UNBOUNDED_TIMEOUT_MS = 60 * 60 * 1000;
+const GATEWAY_LIVE_MAX_TIMEOUT_MS = 2 * 60 * 60 * 1000;
+const GATEWAY_LIVE_MAX_MODELS = resolveGatewayLiveMaxModels();
+const GATEWAY_LIVE_SUITE_TIMEOUT_MS = resolveGatewayLiveSuiteTimeoutMs(GATEWAY_LIVE_MAX_MODELS);
 
 const describeLive = LIVE || GATEWAY_LIVE ? describe : describe.skip;
 
@@ -62,6 +67,27 @@ function toInt(value: string | undefined, fallback: number): number {
   }
   const parsed = Number.parseInt(trimmed, 10);
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function resolveGatewayLiveMaxModels(): number {
+  const gatewayMax = toInt(process.env.OPENCLAW_LIVE_GATEWAY_MAX_MODELS, -1);
+  if (gatewayMax >= 0) {
+    return gatewayMax;
+  }
+  // Reuse shared live-model cap when gateway-specific cap is not provided.
+  return Math.max(0, toInt(process.env.OPENCLAW_LIVE_MAX_MODELS, 0));
+}
+
+function resolveGatewayLiveSuiteTimeoutMs(maxModels: number): number {
+  if (maxModels <= 0) {
+    return GATEWAY_LIVE_UNBOUNDED_TIMEOUT_MS;
+  }
+  // Gateway live runs multiple probes per model; scale timeout by model cap.
+  const estimated = 5 * 60 * 1000 + maxModels * 90 * 1000;
+  return Math.max(
+    GATEWAY_LIVE_DEFAULT_TIMEOUT_MS,
+    Math.min(GATEWAY_LIVE_MAX_TIMEOUT_MS, estimated),
+  );
 }
 
 function capByProviderSpread<T>(
@@ -1144,7 +1170,7 @@ describeLive("gateway live (dev agent, profile keys)", () => {
       const useModern = !rawModels || rawModels === "modern" || rawModels === "all";
       const useExplicit = Boolean(rawModels) && !useModern;
       const filter = useExplicit ? parseFilter(rawModels) : null;
-      const maxModels = toInt(process.env.OPENCLAW_LIVE_GATEWAY_MAX_MODELS, 0);
+      const maxModels = GATEWAY_LIVE_MAX_MODELS;
       const wanted = filter
         ? all.filter((m) => filter.has(`${m.provider}/${m.id}`))
         : all.filter((m) => isModernModelRef({ provider: m.provider, id: m.id }));
@@ -1224,7 +1250,7 @@ describeLive("gateway live (dev agent, profile keys)", () => {
         logProgress("[minimax-anthropic] missing minimax provider config; skipping");
       }
     },
-    20 * 60 * 1000,
+    GATEWAY_LIVE_SUITE_TIMEOUT_MS,
   );
 
   it("z.ai fallback handles anthropic tool history", async () => {

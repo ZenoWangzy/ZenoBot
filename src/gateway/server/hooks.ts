@@ -1,13 +1,17 @@
 import { randomUUID } from "node:crypto";
 import type { CliDeps } from "../../cli/deps.js";
+import type { CronJob } from "../../cron/types.js";
+import type { createSubsystemLogger } from "../../logging/subsystem.js";
 import { loadConfig } from "../../config/config.js";
 import { resolveMainSessionKeyFromConfig } from "../../config/sessions.js";
 import { runCronIsolatedAgentTurn } from "../../cron/isolated-agent.js";
-import type { CronJob } from "../../cron/types.js";
 import { requestHeartbeatNow } from "../../infra/heartbeat-wake.js";
 import { enqueueSystemEvent } from "../../infra/system-events.js";
-import type { createSubsystemLogger } from "../../logging/subsystem.js";
-import type { HookAgentDispatchPayload, HooksConfigResolved } from "../hooks.js";
+import {
+  normalizeHookDispatchSessionKey,
+  type HookAgentDispatchPayload,
+  type HooksConfigResolved,
+} from "../hooks.js";
 import { createHooksRequestHandler } from "../server-http.js";
 
 type SubsystemLogger = ReturnType<typeof createSubsystemLogger>;
@@ -30,7 +34,10 @@ export function createGatewayHooksRequestHandler(params: {
   };
 
   const dispatchAgentHook = (value: HookAgentDispatchPayload) => {
-    const sessionKey = value.sessionKey.trim();
+    const sessionKey = normalizeHookDispatchSessionKey({
+      sessionKey: value.sessionKey,
+      targetAgentId: value.agentId,
+    });
     const mainSessionKey = resolveMainSessionKeyFromConfig();
     const jobId = randomUUID();
     const now = Date.now();

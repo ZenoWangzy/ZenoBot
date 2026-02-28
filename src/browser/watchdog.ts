@@ -6,10 +6,10 @@
  * after repeated failures.
  */
 
-import { createSubsystemLogger } from "../logging/subsystem.js";
 import type { BrowserWatchdogConfig } from "../config/types.browser.js";
-import { detectExistingCDP } from "./launcher.js";
 import type { ChromeProcess } from "./launcher.js";
+import { createSubsystemLogger } from "../logging/subsystem.js";
+import { detectExistingCDP } from "./launcher.js";
 
 const log = createSubsystemLogger("browser").child("watchdog");
 
@@ -48,10 +48,7 @@ export class ConnectionWatchdog {
   private statusChangeCallback: StatusChangeCallback | null = null;
   private browserProcess: ChromeProcess | null = null;
 
-  constructor(
-    cdpPort: number,
-    config?: BrowserWatchdogConfig,
-  ) {
+  constructor(cdpPort: number, config?: BrowserWatchdogConfig) {
     this.cdpPort = cdpPort;
     this.config = { ...DEFAULT_WATCHDOG_CONFIG, ...config };
   }
@@ -197,9 +194,7 @@ export class ConnectionWatchdog {
     this.consecutiveFailures++;
 
     if (this.consecutiveFailures >= this.config.maxRetries) {
-      log.error(
-        `Max retries (${this.config.maxRetries}) exceeded, attempting browser restart`
-      );
+      log.error(`Max retries (${this.config.maxRetries}) exceeded, attempting browser restart`);
 
       if (this.config.autoRestart) {
         await this.restartBrowser();

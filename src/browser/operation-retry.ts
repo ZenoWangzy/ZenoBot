@@ -77,7 +77,9 @@ export interface OperationRetryOptions {
   clearBrowserCache?: () => void;
 }
 
-const DEFAULT_RETRY_OPTIONS: Required<Omit<OperationRetryOptions, "operationName" | "clearBrowserCache">> = {
+const DEFAULT_RETRY_OPTIONS: Required<
+  Omit<OperationRetryOptions, "operationName" | "clearBrowserCache">
+> = {
   maxRetries: 3,
   initialDelayMs: 500,
   maxDelayMs: 10000,
@@ -103,7 +105,7 @@ const DEFAULT_RETRY_OPTIONS: Required<Omit<OperationRetryOptions, "operationName
  */
 export async function withBrowserRetry<T>(
   operation: () => Promise<T>,
-  options?: OperationRetryOptions
+  options?: OperationRetryOptions,
 ): Promise<T> {
   const opts = { ...DEFAULT_RETRY_OPTIONS, ...options };
   let lastError: Error | undefined;
@@ -152,7 +154,7 @@ export async function withBrowserRetry<T>(
  * Useful for wrapping multiple operations with the same settings.
  */
 export function createRetryWrapper(
-  options: OperationRetryOptions
+  options: OperationRetryOptions,
 ): <T>(operation: () => Promise<T>, operationName?: string) => Promise<T> {
   return <T>(operation: () => Promise<T>, operationName?: string) =>
     withBrowserRetry(operation, { ...options, operationName });

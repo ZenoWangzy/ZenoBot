@@ -1,6 +1,6 @@
 import type { OpenClawConfig } from "../config/config.js";
-import { toAgentModelListLike } from "../config/model-input.js";
 import type { ModelProviderConfig } from "../config/types.models.js";
+import { toAgentModelListLike } from "../config/model-input.js";
 import {
   applyAgentDefaultModelPrimary,
   applyOnboardAuthAgentModelsAndProviders,
@@ -181,6 +181,7 @@ function applyMinimaxApiProviderConfigWithBaseUrl(
     ...existingProviderRest,
     baseUrl: params.baseUrl,
     api: "anthropic-messages",
+    authHeader: true,
     ...(normalizedApiKey?.trim() ? { apiKey: normalizedApiKey } : {}),
     models: mergedModels.length > 0 ? mergedModels : [apiModel],
   };

@@ -1,6 +1,6 @@
+import type { ConfigFileSnapshot } from "./types.openclaw.js";
 import { createSubsystemLogger } from "../logging/subsystem.js";
 import { isSensitiveConfigPath, type ConfigUiHints } from "./schema.hints.js";
-import type { ConfigFileSnapshot } from "./types.openclaw.js";
 
 const log = createSubsystemLogger("config/redaction");
 const ENV_VAR_PLACEHOLDER_PATTERN = /^\$\{[^}]*\}$/;
@@ -15,6 +15,31 @@ function isSensitivePath(path: string): boolean {
 
 function isEnvVarPlaceholder(value: string): boolean {
   return ENV_VAR_PLACEHOLDER_PATTERN.test(value.trim());
+}
+
+function isWholeObjectSensitivePath(path: string): boolean {
+  const lowered = path.toLowerCase();
+  return lowered.endsWith("serviceaccount") || lowered.endsWith("serviceaccountref");
+}
+
+function collectSensitiveStrings(value: unknown, values: string[]): void {
+  if (typeof value === "string") {
+    if (!isEnvVarPlaceholder(value)) {
+      values.push(value);
+    }
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      collectSensitiveStrings(item, values);
+    }
+    return;
+  }
+  if (value && typeof value === "object") {
+    for (const item of Object.values(value as Record<string, unknown>)) {
+      collectSensitiveStrings(item, values);
+    }
+  }
 }
 
 function isExplicitlyNonSensitivePath(hints: ConfigUiHints | undefined, paths: string[]): boolean {
@@ -149,7 +174,19 @@ function redactObjectWithLookup(
             result[key] = REDACTED_SENTINEL;
             values.push(value);
           } else if (typeof value === "object" && value !== null) {
-            result[key] = redactObjectWithLookup(value, lookup, candidate, values, hints);
+            if (hints[candidate]?.sensitive === true && !Array.isArray(value)) {
+              collectSensitiveStrings(value, values);
+              result[key] = REDACTED_SENTINEL;
+            } else {
+              result[key] = redactObjectWithLookup(value, lookup, candidate, values, hints);
+            }
+          } else if (
+            hints[candidate]?.sensitive === true &&
+            value !== undefined &&
+            value !== null
+          ) {
+            // Keep primitives at explicitly-sensitive paths fully redacted.
+            result[key] = REDACTED_SENTINEL;
           }
           break;
         }
@@ -221,6 +258,16 @@ function redactObjectGuessing(
       ) {
         result[key] = REDACTED_SENTINEL;
         values.push(value);
+      } else if (
+        !isExplicitlyNonSensitivePath(hints, [dotPath, wildcardPath]) &&
+        isSensitivePath(dotPath) &&
+        isWholeObjectSensitivePath(dotPath) &&
+        value &&
+        typeof value === "object" &&
+        !Array.isArray(value)
+      ) {
+        collectSensitiveStrings(value, values);
+        result[key] = REDACTED_SENTINEL;
       } else if (typeof value === "object" && value !== null) {
         result[key] = redactObjectGuessing(value, dotPath, values, hints);
       } else {

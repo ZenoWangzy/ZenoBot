@@ -13,6 +13,7 @@
 ## Task 1: 创建watchdog模块
 
 **Files:**
+
 - Create: `src/daemon/watchdog.ts`
 - Create: `src/daemon/watchdog.test.ts`
 
@@ -130,6 +131,7 @@ git commit -m "feat(daemon): add Windows watchdog module for port detection
 ## Task 2: 添加watchdog启动gateway的函数
 
 **Files:**
+
 - Modify: `src/daemon/watchdog.ts`
 - Modify: `src/daemon/watchdog.test.ts`
 
@@ -261,6 +263,7 @@ git commit -m "feat(daemon): add buildWatchdogScript for Windows gateway watchdo
 ## Task 3: 修改schtasks.ts添加重复触发器
 
 **Files:**
+
 - Modify: `src/daemon/schtasks.ts`
 - Modify: `src/daemon/schtasks.test.ts`
 
@@ -353,6 +356,7 @@ git commit -m "feat(daemon): add buildWatchdogTaskArgs with repeat interval
 ## Task 4: 修改installScheduledTask使用watchdog
 
 **Files:**
+
 - Modify: `src/daemon/schtasks.ts`
 
 **Step 1: 修改installScheduledTask函数**
@@ -467,6 +471,7 @@ git commit -m "feat(daemon): use watchdog script in installScheduledTask
 ## Task 5: 修改uninstallScheduledTask清理watchdog脚本
 
 **Files:**
+
 - Modify: `src/daemon/schtasks.ts`
 
 **Step 1: 修改uninstallScheduledTask函数**
@@ -588,12 +593,12 @@ git commit -m "docs: add Windows gateway keepalive implementation plan"
 
 ## Summary
 
-| Task | Description | Files Changed |
-|------|-------------|---------------|
-| 1 | Create watchdog module | `watchdog.ts`, `watchdog.test.ts` |
-| 2 | Add buildWatchdogScript | `watchdog.ts`, `watchdog.test.ts` |
-| 3 | Add buildWatchdogTaskArgs | `schtasks.ts`, `schtasks.test.ts` |
-| 4 | Modify installScheduledTask | `schtasks.ts` |
-| 5 | Modify uninstallScheduledTask | `schtasks.ts` |
-| 6 | Run tests | - |
-| 7 | Manual verification | - |
+| Task | Description                   | Files Changed                     |
+| ---- | ----------------------------- | --------------------------------- |
+| 1    | Create watchdog module        | `watchdog.ts`, `watchdog.test.ts` |
+| 2    | Add buildWatchdogScript       | `watchdog.ts`, `watchdog.test.ts` |
+| 3    | Add buildWatchdogTaskArgs     | `schtasks.ts`, `schtasks.test.ts` |
+| 4    | Modify installScheduledTask   | `schtasks.ts`                     |
+| 5    | Modify uninstallScheduledTask | `schtasks.ts`                     |
+| 6    | Run tests                     | -                                 |
+| 7    | Manual verification           | -                                 |

@@ -1,4 +1,5 @@
 import path from "node:path";
+import type { OpenClawConfig, ConfigValidationIssue } from "./types.js";
 import { resolveAgentWorkspaceDir, resolveDefaultAgentId } from "../agents/agent-scope.js";
 import { CHANNEL_IDS, normalizeChatChannelId } from "../channels/registry.js";
 import {
@@ -19,7 +20,6 @@ import { isRecord } from "../utils.js";
 import { findDuplicateAgentDirs, formatDuplicateAgentDirError } from "./agent-dirs.js";
 import { applyAgentDefaults, applyModelDefaults, applySessionDefaults } from "./defaults.js";
 import { findLegacyConfigIssues } from "./legacy.js";
-import type { OpenClawConfig, ConfigValidationIssue } from "./types.js";
 import { OpenClawSchema } from "./zod-schema.js";
 
 const LEGACY_REMOVED_PLUGIN_IDS = new Set(["google-antigravity-auth"]);
@@ -315,11 +315,22 @@ function validateConfigObjectWithPluginsBase(
   }
 
   const { registry, knownIds, normalizedPlugins } = ensureRegistry();
-  const pushMissingPluginIssue = (path: string, pluginId: string) => {
+  const pushMissingPluginIssue = (
+    path: string,
+    pluginId: string,
+    opts?: { warnOnly?: boolean },
+  ) => {
     if (LEGACY_REMOVED_PLUGIN_IDS.has(pluginId)) {
       warnings.push({
         path,
         message: `plugin removed: ${pluginId} (stale config entry ignored; remove it from plugins config)`,
+      });
+      return;
+    }
+    if (opts?.warnOnly) {
+      warnings.push({
+        path,
+        message: `plugin not found: ${pluginId} (stale config entry ignored; remove it from plugins config)`,
       });
       return;
     }
@@ -335,7 +346,8 @@ function validateConfigObjectWithPluginsBase(
   if (entries && isRecord(entries)) {
     for (const pluginId of Object.keys(entries)) {
       if (!knownIds.has(pluginId)) {
-        pushMissingPluginIssue(`plugins.entries.${pluginId}`, pluginId);
+        // Keep gateway startup resilient when plugins are removed/renamed across upgrades.
+        pushMissingPluginIssue(`plugins.entries.${pluginId}`, pluginId, { warnOnly: true });
       }
     }
   }

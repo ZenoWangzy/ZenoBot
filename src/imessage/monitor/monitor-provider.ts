@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import type { IMessagePayload, MonitorIMessageOpts } from "./types.js";
 import { resolveHumanDelayConfig } from "../../agents/identity.js";
 import { resolveTextChunkLimit } from "../../auto-reply/chunk.js";
 import { hasControlCommand } from "../../auto-reply/command-detection.js";
@@ -51,7 +52,6 @@ import {
 } from "./inbound-processing.js";
 import { parseIMessageNotification } from "./parse-notification.js";
 import { normalizeAllowList, resolveRuntime } from "./runtime.js";
-import type { IMessagePayload, MonitorIMessageOpts } from "./types.js";
 
 /**
  * Try to detect remote host from an SSH wrapper script like:
@@ -230,7 +230,11 @@ export async function monitorIMessageProvider(opts: MonitorIMessageOpts = {}): P
         : "";
     const bodyText = messageText || placeholder;
 
-    const storeAllowFrom = await readChannelAllowFromStore("imessage").catch(() => []);
+    const storeAllowFrom = await readChannelAllowFromStore(
+      "imessage",
+      process.env,
+      accountInfo.accountId,
+    ).catch(() => []);
     const decision = resolveIMessageInboundDecision({
       cfg,
       accountId: accountInfo.accountId,
@@ -262,6 +266,7 @@ export async function monitorIMessageProvider(opts: MonitorIMessageOpts = {}): P
       const { code, created } = await upsertChannelPairingRequest({
         channel: "imessage",
         id: decision.senderId,
+        accountId: accountInfo.accountId,
         meta: {
           sender: decision.senderId,
           chatId: chatId ? String(chatId) : undefined,

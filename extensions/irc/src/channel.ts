@@ -12,6 +12,7 @@ import {
   setAccountEnabledInConfigSection,
   type ChannelPlugin,
 } from "openclaw/plugin-sdk";
+import type { CoreConfig, IrcProbe } from "./types.js";
 import {
   listIrcAccountIds,
   resolveDefaultIrcAccountId,
@@ -31,7 +32,6 @@ import { resolveIrcGroupMatch, resolveIrcRequireMention } from "./policy.js";
 import { probeIrc } from "./probe.js";
 import { getIrcRuntime } from "./runtime.js";
 import { sendMessageIrc } from "./send.js";
-import type { CoreConfig, IrcProbe } from "./types.js";
 
 const meta = getChatChannelMeta("irc");
 

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import { createWizardPrompter as buildWizardPrompter } from "../../test/helpers/wizard-prompter.js";
 import type { RuntimeEnv } from "../runtime.js";
 import type { WizardPrompter, WizardSelectParams } from "./prompts.js";
+import { createWizardPrompter as buildWizardPrompter } from "../../test/helpers/wizard-prompter.js";
 
 const mocks = vi.hoisted(() => ({
   randomToken: vi.fn(),
@@ -110,5 +110,30 @@ describe("configureGatewayForOnboarding", () => {
     expect(authConfig?.mode).toBe("password");
     expect(authConfig?.password).toBe("");
     expect(authConfig?.password).not.toBe("undefined");
+  });
+
+  it("seeds control UI allowed origins for non-loopback binds", async () => {
+    mocks.randomToken.mockReturnValue("generated-token");
+
+    const prompter = createPrompter({
+      selectQueue: ["lan", "token", "off"],
+      textQueue: ["18789", undefined],
+    });
+    const runtime = createRuntime();
+
+    const result = await configureGatewayForOnboarding({
+      flow: "advanced",
+      baseConfig: {},
+      nextConfig: {},
+      localPort: 18789,
+      quickstartGateway: createQuickstartGateway("token"),
+      prompter,
+      runtime,
+    });
+
+    expect(result.nextConfig.gateway?.controlUi?.allowedOrigins).toEqual([
+      "http://localhost:18789",
+      "http://127.0.0.1:18789",
+    ]);
   });
 });

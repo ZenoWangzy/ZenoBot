@@ -60,9 +60,7 @@ export class SessionStateRecovery {
       ...snapshot,
       timestamp: Date.now(),
     };
-    log.info(
-      `Snapshot saved: ${snapshot.activeTabUrl.substring(0, 50)}...`
-    );
+    log.info(`Snapshot saved: ${snapshot.activeTabUrl.substring(0, 50)}...`);
   }
 
   /**
@@ -106,15 +104,13 @@ export class SessionStateRecovery {
   /**
    * Create a snapshot from page evaluation result.
    */
-  static createSnapshotFromPageState(
-    pageState: {
-      url: string;
-      title: string;
-      scrollX: number;
-      scrollY: number;
-      formData: Record<string, string>;
-    }
-  ): SessionSnapshot {
+  static createSnapshotFromPageState(pageState: {
+    url: string;
+    title: string;
+    scrollX: number;
+    scrollY: number;
+    formData: Record<string, string>;
+  }): SessionSnapshot {
     return {
       activeTabUrl: pageState.url,
       activeTabTitle: pageState.title,
@@ -190,9 +186,7 @@ export class SessionStateRecovery {
 /**
  * Create a session state recovery instance.
  */
-export function createSessionStateRecovery(
-  options?: RecoveryOptions,
-): SessionStateRecovery {
+export function createSessionStateRecovery(options?: RecoveryOptions): SessionStateRecovery {
   return new SessionStateRecovery(options);
 }
 

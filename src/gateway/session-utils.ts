@@ -1,5 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
+import type {
+  GatewayAgentRow,
+  GatewaySessionRow,
+  GatewaySessionsDefaults,
+  SessionsListResult,
+} from "./session-utils.types.js";
 import { resolveAgentWorkspaceDir, resolveDefaultAgentId } from "../agents/agent-scope.js";
 import { lookupContextTokens } from "../agents/context.js";
 import { DEFAULT_CONTEXT_TOKENS, DEFAULT_MODEL, DEFAULT_PROVIDER } from "../agents/defaults.js";
@@ -22,7 +28,7 @@ import {
   type SessionEntry,
   type SessionScope,
 } from "../config/sessions.js";
-import { openVerifiedFileSync } from "../infra/safe-open-sync.js";
+import { openBoundaryFileSync } from "../infra/boundary-file-read.js";
 import {
   normalizeAgentId,
   normalizeMainKey,
@@ -39,12 +45,6 @@ import {
 } from "../shared/avatar-policy.js";
 import { normalizeSessionDeliveryFields } from "../utils/delivery-context.js";
 import { readSessionTitleFieldsFromTranscript } from "./session-utils.fs.js";
-import type {
-  GatewayAgentRow,
-  GatewaySessionRow,
-  GatewaySessionsDefaults,
-  SessionsListResult,
-} from "./session-utils.types.js";
 
 export {
   archiveFileOnDisk,
@@ -102,14 +102,13 @@ function resolveIdentityAvatarUrl(
     return undefined;
   }
   try {
-    const resolvedReal = fs.realpathSync(resolvedCandidate);
-    if (!isPathWithinRoot(workspaceRoot, resolvedReal)) {
-      return undefined;
-    }
-    const opened = openVerifiedFileSync({
-      filePath: resolvedReal,
-      resolvedPath: resolvedReal,
+    const opened = openBoundaryFileSync({
+      absolutePath: resolvedCandidate,
+      rootPath: workspaceRoot,
+      rootRealPath: workspaceRoot,
+      boundaryLabel: "workspace root",
       maxBytes: AVATAR_MAX_BYTES,
+      skipLexicalRootCheck: true,
     });
     if (!opened.ok) {
       return undefined;

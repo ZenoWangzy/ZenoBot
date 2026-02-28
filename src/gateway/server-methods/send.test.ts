@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { GatewayRequestContext } from "./types.js";
 import { resolveOutboundTarget } from "../../infra/outbound/targets.js";
 import { setActivePluginRegistry } from "../../plugins/runtime.js";
 import { createTestRegistry } from "../../test-utils/channel-plugins.js";
 import { sendHandlers } from "./send.js";
-import type { GatewayRequestContext } from "./types.js";
 
 const mocks = vi.hoisted(() => ({
   deliverOutboundPayloads: vi.fn(),
@@ -392,7 +392,10 @@ describe("gateway send mirroring", () => {
 
     expect(mocks.deliverOutboundPayloads).toHaveBeenCalledWith(
       expect.objectContaining({
-        agentId: "work",
+        session: expect.objectContaining({
+          agentId: "work",
+          key: "agent:work:slack:channel:resolved",
+        }),
         mirror: expect.objectContaining({
           sessionKey: "agent:work:slack:channel:resolved",
           agentId: "work",
@@ -414,7 +417,10 @@ describe("gateway send mirroring", () => {
 
     expect(mocks.deliverOutboundPayloads).toHaveBeenCalledWith(
       expect.objectContaining({
-        agentId: "work",
+        session: expect.objectContaining({
+          agentId: "work",
+          key: "agent:work:slack:channel:c1",
+        }),
         mirror: expect.objectContaining({
           sessionKey: "agent:work:slack:channel:c1",
           agentId: "work",
@@ -437,7 +443,10 @@ describe("gateway send mirroring", () => {
 
     expect(mocks.deliverOutboundPayloads).toHaveBeenCalledWith(
       expect.objectContaining({
-        agentId: "work",
+        session: expect.objectContaining({
+          agentId: "work",
+          key: "agent:main:slack:channel:c1",
+        }),
         mirror: expect.objectContaining({
           sessionKey: "agent:main:slack:channel:c1",
           agentId: "work",
@@ -460,7 +469,10 @@ describe("gateway send mirroring", () => {
 
     expect(mocks.deliverOutboundPayloads).toHaveBeenCalledWith(
       expect.objectContaining({
-        agentId: "work",
+        session: expect.objectContaining({
+          agentId: "work",
+          key: "agent:work:slack:channel:c1",
+        }),
         mirror: expect.objectContaining({
           sessionKey: "agent:work:slack:channel:c1",
           agentId: "work",

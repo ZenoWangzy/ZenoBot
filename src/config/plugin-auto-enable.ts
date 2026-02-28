@@ -1,3 +1,4 @@
+import type { OpenClawConfig } from "./config.js";
 import { normalizeProviderId } from "../agents/model-selection.js";
 import {
   getChannelPluginCatalogEntry,
@@ -14,7 +15,6 @@ import {
 } from "../plugins/manifest-registry.js";
 import { isRecord } from "../utils.js";
 import { hasAnyWhatsAppAuth } from "../web/accounts.js";
-import type { OpenClawConfig } from "./config.js";
 import { ensurePluginAllowlisted } from "./plugins-allowlist.js";
 
 type PluginEnableChange = {
@@ -353,6 +353,16 @@ function resolveConfiguredPlugins(
         reason: `${mapping.providerId} auth configured`,
       });
     }
+  }
+  const backendRaw =
+    typeof cfg.acp?.backend === "string" ? cfg.acp.backend.trim().toLowerCase() : "";
+  const acpConfigured =
+    cfg.acp?.enabled === true || cfg.acp?.dispatch?.enabled === true || backendRaw === "acpx";
+  if (acpConfigured && (!backendRaw || backendRaw === "acpx")) {
+    changes.push({
+      pluginId: "acpx",
+      reason: "ACP runtime configured",
+    });
   }
   return changes;
 }

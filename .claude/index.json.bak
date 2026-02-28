@@ -1,0 +1,534 @@
+{
+  "version": "1.0.0",
+  "timestamp": "2026-02-16T00:24:55+08:00",
+  "project": {
+    "name": "openclaw",
+    "version": "2026.2.15",
+    "description": "Multi-channel AI gateway with extensible messaging integrations",
+    "forkOf": "openclaw/openclaw",
+    "customizedName": "ZenoBot"
+  },
+  "modules": [
+    {
+      "id": "agents",
+      "path": "src/agents",
+      "description": "AI 代理核心逻辑、认证配置、会话管理",
+      "language": "TypeScript",
+      "entryPoints": ["src/commands/agent.ts", "src/gateway/server-methods/agent.ts"],
+      "keyFiles": [
+        "src/agents/agent-paths.ts",
+        "src/agents/identity.ts",
+        "src/agents/auth-profiles/index.ts",
+        "src/agents/bash-tools.ts",
+        "src/agents/model-catalog.ts",
+        "src/agents/pi-embedded.ts"
+      ],
+      "hasTests": true,
+      "testPattern": "src/agents/**/*.test.ts",
+      "documentation": "src/agents/CLAUDE.md"
+    },
+    {
+      "id": "channels",
+      "path": "src/channels",
+      "description": "多消息渠道集成插件系统",
+      "language": "TypeScript",
+      "entryPoints": ["src/channels/registry.ts"],
+      "keyFiles": [
+        "src/channels/registry.ts",
+        "src/channels/channel-config.ts",
+        "src/channels/plugins/index.ts"
+      ],
+      "hasTests": true,
+      "testPattern": "src/channels/**/*.test.ts",
+      "documentation": "src/channels/CLAUDE.md"
+    },
+    {
+      "id": "gateway",
+      "path": "src/gateway",
+      "description": "网关服务器 - 控制平面核心",
+      "language": "TypeScript",
+      "entryPoints": ["src/gateway/boot.ts"],
+      "keyFiles": [
+        "src/gateway/boot.ts",
+        "src/gateway/server.ts",
+        "src/gateway/server-http.ts",
+        "src/gateway/server-discovery.ts",
+        "src/gateway/openai-http.ts"
+      ],
+      "hasTests": true,
+      "testPattern": "src/gateway/**/*.test.ts",
+      "documentation": "src/gateway/CLAUDE.md"
+    },
+    {
+      "id": "commands",
+      "path": "src/commands",
+      "description": "CLI 命令行接口",
+      "language": "TypeScript",
+      "entryPoints": ["src/entry.ts", "openclaw.mjs"],
+      "keyFiles": [
+        "src/commands/agent.ts",
+        "src/commands/channels.ts",
+        "src/commands/gateway-status.ts",
+        "src/commands/configure.ts",
+        "src/commands/doctor.ts",
+        "src/commands/onboard.ts"
+      ],
+      "hasTests": true,
+      "testPattern": "src/commands/**/*.test.ts",
+      "documentation": "src/commands/CLAUDE.md"
+    },
+    {
+      "id": "config",
+      "path": "src/config",
+      "description": "配置管理，配置加载、验证、迁移",
+      "language": "TypeScript",
+      "entryPoints": ["src/config/config.ts"],
+      "keyFiles": [
+        "src/config/config.ts",
+        "src/config/types.ts",
+        "src/config/zod-schema.core.ts"
+      ],
+      "hasTests": true,
+      "testPattern": "src/config/**/*.test.ts",
+      "documentation": null
+    },
+    {
+      "id": "browser",
+      "path": "src/browser",
+      "description": "浏览器自动化，基于 Playwright 的控制服务",
+      "language": "TypeScript",
+      "entryPoints": ["src/browser/server.ts"],
+      "keyFiles": [
+        "src/browser/server.ts",
+        "src/browser/cdp.ts",
+        "src/browser/pw-session.ts"
+      ],
+      "hasTests": true,
+      "testPattern": "src/browser/**/*.test.ts",
+      "documentation": null
+    },
+    {
+      "id": "canvas-host",
+      "path": "src/canvas-host",
+      "description": "Canvas A2UI 渲染服务器",
+      "language": "TypeScript",
+      "entryPoints": ["src/canvas-host/server.ts"],
+      "keyFiles": [
+        "src/canvas-host/server.ts",
+        "src/canvas-host/a2ui.ts"
+      ],
+      "hasTests": false,
+      "testPattern": null,
+      "documentation": "src/canvas-host/CLAUDE.md"
+    },
+    {
+      "id": "acp",
+      "path": "src/acp",
+      "description": "Agent Client Protocol 实现",
+      "language": "TypeScript",
+      "entryPoints": ["src/acp/index.ts"],
+      "keyFiles": [
+        "src/acp/index.ts",
+        "src/acp/session.ts",
+        "src/acp/types.ts"
+      ],
+      "hasTests": true,
+      "testPattern": "src/acp/**/*.test.ts",
+      "documentation": "src/acp/CLAUDE.md"
+    },
+    {
+      "id": "plugin-sdk",
+      "path": "src/plugin-sdk",
+      "description": "插件开发 SDK",
+      "language": "TypeScript",
+      "entryPoints": ["src/plugin-sdk/index.ts"],
+      "keyFiles": ["src/plugin-sdk/index.ts"],
+      "hasTests": true,
+      "testPattern": "src/plugin-sdk/**/*.test.ts",
+      "documentation": "src/plugin-sdk/CLAUDE.md"
+    },
+    {
+      "id": "ui",
+      "path": "ui",
+      "description": "Web 控制界面",
+      "language": "TypeScript/Lit",
+      "entryPoints": ["ui/src/main.ts"],
+      "keyFiles": [
+        "ui/src/main.ts",
+        "ui/src/ui/app.ts",
+        "ui/vite.config.ts"
+      ],
+      "hasTests": true,
+      "testPattern": "ui/**/*.test.ts",
+      "documentation": "ui/CLAUDE.md"
+    },
+    {
+      "id": "android",
+      "path": "apps/android",
+      "description": "Android 原生应用",
+      "language": "Kotlin",
+      "entryPoints": ["apps/android/app/src/main/java/ai/openclaw/android/MainActivity.kt"],
+      "keyFiles": [
+        "apps/android/app/src/main/java/ai/openclaw/android/MainActivity.kt",
+        "apps/android/build.gradle.kts"
+      ],
+      "hasTests": true,
+      "testPattern": "apps/android/app/src/test/**/*.kt",
+      "documentation": "apps/android/CLAUDE.md"
+    },
+    {
+      "id": "ios",
+      "path": "apps/ios",
+      "description": "iOS 原生应用",
+      "language": "Swift",
+      "entryPoints": ["apps/ios/Sources/"],
+      "keyFiles": ["apps/ios/project.yml"],
+      "hasTests": true,
+      "testPattern": "apps/ios/Tests/**/*.swift",
+      "documentation": "apps/ios/CLAUDE.md"
+    },
+    {
+      "id": "macos",
+      "path": "apps/macos",
+      "description": "macOS 原生应用",
+      "language": "Swift",
+      "entryPoints": ["apps/macos/Sources/"],
+      "keyFiles": ["apps/macos/project.yml"],
+      "hasTests": false,
+      "testPattern": null,
+      "documentation": "apps/macos/CLAUDE.md"
+    },
+    {
+      "id": "shared",
+      "path": "apps/shared",
+      "description": "iOS/macOS 共享代码",
+      "language": "Swift",
+      "entryPoints": ["apps/shared/OpenClawKit/"],
+      "keyFiles": ["apps/shared/OpenClawKit/"],
+      "hasTests": false,
+      "testPattern": null,
+      "documentation": "apps/shared/CLAUDE.md"
+    },
+    {
+      "id": "extensions-bluebubbles",
+      "path": "extensions/bluebubbles",
+      "description": "BlueBubbles iMessage 集成",
+      "language": "TypeScript",
+      "entryPoints": ["extensions/bluebubbles/index.ts"],
+      "keyFiles": ["extensions/bluebubbles/src/channel.ts"],
+      "hasTests": true,
+      "testPattern": "extensions/bluebubbles/**/*.test.ts",
+      "status": "stable"
+    },
+    {
+      "id": "extensions-discord",
+      "path": "extensions/discord",
+      "description": "Discord 集成",
+      "language": "TypeScript",
+      "entryPoints": ["extensions/discord/index.ts"],
+      "keyFiles": ["extensions/discord/src/runtime.ts"],
+      "hasTests": false,
+      "status": "stable"
+    },
+    {
+      "id": "extensions-feishu",
+      "path": "extensions/feishu",
+      "description": "飞书/Lark 集成（社区维护）",
+      "language": "TypeScript",
+      "entryPoints": ["extensions/feishu/index.ts"],
+      "keyFiles": ["extensions/feishu/src/runtime.ts", "extensions/feishu/src/client.ts"],
+      "hasTests": true,
+      "testPattern": "extensions/feishu/**/*.test.ts",
+      "status": "community"
+    },
+    {
+      "id": "extensions-googlechat",
+      "path": "extensions/googlechat",
+      "description": "Google Chat 集成",
+      "language": "TypeScript",
+      "entryPoints": ["extensions/googlechat/index.ts"],
+      "keyFiles": ["extensions/googlechat/src/runtime.ts", "extensions/googlechat/src/api.ts"],
+      "hasTests": true,
+      "testPattern": "extensions/googlechat/**/*.test.ts",
+      "status": "experimental"
+    },
+    {
+      "id": "extensions-matrix",
+      "path": "extensions/matrix",
+      "description": "Matrix 集成",
+      "language": "TypeScript",
+      "entryPoints": ["extensions/matrix/index.ts"],
+      "keyFiles": ["extensions/matrix/src/matrix/client.ts"],
+      "hasTests": true,
+      "testPattern": "extensions/matrix/**/*.test.ts",
+      "status": "stable"
+    },
+    {
+      "id": "extensions-msteams",
+      "path": "extensions/msteams",
+      "description": "Microsoft Teams 集成",
+      "language": "TypeScript",
+      "entryPoints": ["extensions/msteams/index.ts"],
+      "keyFiles": ["extensions/msteams/src/channel.ts"],
+      "hasTests": true,
+      "testPattern": "extensions/msteams/**/*.test.ts",
+      "status": "experimental"
+    },
+    {
+      "id": "extensions-line",
+      "path": "extensions/line",
+      "description": "LINE 集成",
+      "language": "TypeScript",
+      "entryPoints": ["extensions/line/index.ts"],
+      "keyFiles": ["extensions/line/src/channel.ts"],
+      "hasTests": true,
+      "testPattern": "extensions/line/**/*.test.ts",
+      "status": "stable"
+    },
+    {
+      "id": "extensions-irc",
+      "path": "extensions/irc",
+      "description": "IRC 集成",
+      "language": "TypeScript",
+      "entryPoints": ["extensions/irc/index.ts"],
+      "keyFiles": ["extensions/irc/src/client.ts"],
+      "hasTests": true,
+      "testPattern": "extensions/irc/**/*.test.ts",
+      "status": "stable"
+    },
+    {
+      "id": "extensions-nostr",
+      "path": "extensions/nostr",
+      "description": "Nostr 集成",
+      "language": "TypeScript",
+      "entryPoints": ["extensions/nostr/index.ts"],
+      "keyFiles": ["extensions/nostr/src/channel.ts"],
+      "hasTests": true,
+      "testPattern": "extensions/nostr/**/*.test.ts",
+      "status": "experimental"
+    },
+    {
+      "id": "extensions-voice-call",
+      "path": "extensions/voice-call",
+      "description": "语音通话集成",
+      "language": "TypeScript",
+      "entryPoints": ["extensions/voice-call/index.ts"],
+      "keyFiles": ["extensions/voice-call/src/manager.ts"],
+      "hasTests": true,
+      "testPattern": "extensions/voice-call/**/*.test.ts",
+      "status": "experimental"
+    },
+    {
+      "id": "extensions-twitch",
+      "path": "extensions/twitch",
+      "description": "Twitch 集成",
+      "language": "TypeScript",
+      "entryPoints": ["extensions/twitch/index.ts"],
+      "keyFiles": ["extensions/twitch/src/twitch-client.ts"],
+      "hasTests": true,
+      "testPattern": "extensions/twitch/**/*.test.ts",
+      "status": "experimental"
+    },
+    {
+      "id": "extensions-zalo",
+      "path": "extensions/zalo",
+      "description": "Zalo 集成",
+      "language": "TypeScript",
+      "entryPoints": ["extensions/zalo/index.ts"],
+      "keyFiles": ["extensions/zalo/src/channel.ts"],
+      "hasTests": true,
+      "testPattern": "extensions/zalo/**/*.test.ts",
+      "status": "experimental"
+    },
+    {
+      "id": "extensions-mattermost",
+      "path": "extensions/mattermost",
+      "description": "Mattermost 集成",
+      "language": "TypeScript",
+      "entryPoints": ["extensions/mattermost/index.ts"],
+      "keyFiles": ["extensions/mattermost/src/channel.ts"],
+      "hasTests": true,
+      "testPattern": "extensions/mattermost/**/*.test.ts",
+      "status": "experimental"
+    },
+    {
+      "id": "extensions-nextcloud-talk",
+      "path": "extensions/nextcloud-talk",
+      "description": "Nextcloud Talk 集成",
+      "language": "TypeScript",
+      "entryPoints": ["extensions/nextcloud-talk/index.ts"],
+      "keyFiles": ["extensions/nextcloud-talk/src/channel.ts"],
+      "hasTests": true,
+      "testPattern": "extensions/nextcloud-talk/**/*.test.ts",
+      "status": "experimental"
+    },
+    {
+      "id": "skills",
+      "path": "skills",
+      "description": "AI 技能插件集合",
+      "language": "多种",
+      "entryPoints": [],
+      "keyFiles": [
+        "skills/1password/SKILL.md",
+        "skills/github/SKILL.md",
+        "skills/notion/SKILL.md",
+        "skills/obsidian/SKILL.md",
+        "skills/coding-agent/SKILL.md"
+      ],
+      "entries": [
+        "1password",
+        "apple-notes",
+        "apple-reminders",
+        "bear-notes",
+        "blogwatcher",
+        "blucli",
+        "bluebubbles",
+        "camsnap",
+        "canvas",
+        "clawhub",
+        "coding-agent",
+        "eightctl",
+        "food-order",
+        "gemini",
+        "gifgrep",
+        "github",
+        "gog",
+        "goplaces",
+        "healthcheck",
+        "himalaya",
+        "imsg",
+        "mcporter",
+        "model-usage",
+        "nano-banana-pro",
+        "nano-pdf",
+        "notion",
+        "obsidian",
+        "openai-image-gen",
+        "openai-whisper",
+        "openai-whisper-api",
+        "openhue",
+        "oracle",
+        "ordercli",
+        "peekaboo",
+        "sag",
+        "session-logs",
+        "sherpa-onnx-tts",
+        "skill-creator",
+        "slack",
+        "songsee",
+        "sonoscli",
+        "spotify-player",
+        "summarize",
+        "things-mac",
+        "tmux",
+        "trello",
+        "video-frames",
+        "voice-call",
+        "wacli",
+        "weather"
+      ],
+      "hasTests": false,
+      "documentation": "skills/CLAUDE.md"
+    },
+    {
+      "id": "scripts",
+      "path": "scripts",
+      "description": "构建部署脚本",
+      "language": "TypeScript/Shell/Bash",
+      "entryPoints": ["scripts/run-node.mjs", "scripts/ui.js"],
+      "keyFiles": [
+        "scripts/run-node.mjs",
+        "scripts/watch-node.mjs",
+        "scripts/ui.js",
+        "scripts/protocol-gen.ts",
+        "scripts/package-mac-app.sh"
+      ],
+      "hasTests": false,
+      "documentation": "scripts/CLAUDE.md"
+    }
+  ],
+  "coverage": {
+    "estimatedTotalFiles": 1000,
+    "scannedFiles": 350,
+    "coveragePercent": 35,
+    "truncated": false,
+    "truncatedReason": null
+  },
+  "gaps": [
+    {
+      "module": "agents",
+      "missing": ["src/agents/tools/ 详细实现", "模型回退配置详细说明"]
+    },
+    {
+      "module": "gateway",
+      "missing": ["src/gateway/server-methods/ 核心方法实现"]
+    },
+    {
+      "module": "mobile-apps",
+      "missing": ["iOS Swift 代码详细分析", "macOS Swift 代码详细分析", "Android Kotlin 代码详细分析"]
+    },
+    {
+      "module": "extensions",
+      "missing": ["各扩展 src/ 目录下的详细实现"]
+    },
+    {
+      "module": "skills",
+      "missing": ["各技能目录下的详细实现"]
+    }
+  ],
+  "ignoredPaths": [
+    "node_modules/**",
+    ".git/**",
+    "dist/**",
+    "build/**",
+    ".next/**",
+    "__pycache__/**",
+    "*.lock",
+    "*.log",
+    "*.bin",
+    "*.pdf",
+    "*.png",
+    "*.jpg",
+    "*.jpeg",
+    "*.gif",
+    "*.mp4",
+    "*.zip",
+    "*.tar",
+    "*.gz",
+    "coverage/**",
+    ".tsbuildinfo",
+    ".pnpm-store/**",
+    ".worktrees/**",
+    "**/.DS_Store",
+    "ui/src/ui/__screenshots__/**",
+    "ui/playwright-report/**",
+    "ui/test-results/**",
+    "apps/android/.gradle/**",
+    "apps/android/app/build/**",
+    "apps/android/.cxx/**",
+    "apps/macos/.build/**",
+    "Core/**",
+    "**/*.xcworkspace/**",
+    "**/*.xcodeproj/**",
+    "**/.swiftpm/**",
+    "**/ModuleCache/**",
+    "bin/**",
+    "vendor/a2ui/renderers/lit/dist/**",
+    "**/*.bun-build"
+  ],
+  "nextSteps": [
+    "深入扫描 src/gateway/server-methods/ - Gateway 核心方法实现",
+    "深入扫描 src/agents/tools/ - 代理工具定义",
+    "分析 extensions/matrix/src/ - Matrix 扩展实现",
+    "分析 extensions/msteams/src/ - MS Teams 扩展实现",
+    "探索 apps/*/Sources/ - 移动应用实现细节"
+  ],
+  "languageStats": {
+    "TypeScript": 65,
+    "Kotlin": 10,
+    "Swift": 15,
+    "Shell": 3,
+    "Python": 2,
+    "Other": 5
+  }
+}

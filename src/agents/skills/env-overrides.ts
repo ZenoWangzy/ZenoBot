@@ -1,10 +1,10 @@
 import type { OpenClawConfig } from "../../config/config.js";
+import type { SkillEntry, SkillSnapshot } from "./types.js";
 import { isDangerousHostEnvVarName } from "../../infra/host-env-security.js";
 import { createSubsystemLogger } from "../../logging/subsystem.js";
 import { sanitizeEnvVars, validateEnvVarValue } from "../sandbox/sanitize-env-vars.js";
 import { resolveSkillConfig } from "./config.js";
 import { resolveSkillKey } from "./frontmatter.js";
-import type { SkillEntry, SkillSnapshot } from "./types.js";
 
 const log = createSubsystemLogger("env-overrides");
 
@@ -105,9 +105,10 @@ function applySkillConfigEnvOverrides(params: {
     }
   }
 
-  if (normalizedPrimaryEnv && skillConfig.apiKey && !process.env[normalizedPrimaryEnv]) {
+  const resolvedApiKey = typeof skillConfig.apiKey === "string" ? skillConfig.apiKey.trim() : "";
+  if (normalizedPrimaryEnv && resolvedApiKey && !process.env[normalizedPrimaryEnv]) {
     if (!pendingOverrides[normalizedPrimaryEnv]) {
-      pendingOverrides[normalizedPrimaryEnv] = skillConfig.apiKey;
+      pendingOverrides[normalizedPrimaryEnv] = resolvedApiKey;
     }
   }
 

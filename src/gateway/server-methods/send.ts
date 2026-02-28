@@ -1,3 +1,4 @@
+import type { GatewayRequestContext, GatewayRequestHandlers } from "./types.js";
 import { resolveSessionAgentId } from "../../agents/agent-scope.js";
 import { normalizeChannelId } from "../../channels/plugins/index.js";
 import { createOutboundSendDeps } from "../../cli/deps.js";
@@ -10,6 +11,7 @@ import {
   resolveOutboundSessionRoute,
 } from "../../infra/outbound/outbound-session.js";
 import { normalizeReplyPayloadsForDelivery } from "../../infra/outbound/payloads.js";
+import { buildOutboundSessionContext } from "../../infra/outbound/session-context.js";
 import { resolveOutboundTarget } from "../../infra/outbound/targets.js";
 import { normalizePollInput } from "../../polls.js";
 import {
@@ -20,7 +22,6 @@ import {
   validateSendParams,
 } from "../protocol/index.js";
 import { formatForLog } from "../ws-log.js";
-import type { GatewayRequestContext, GatewayRequestHandlers } from "./types.js";
 
 type InflightResult = {
   ok: boolean;
@@ -237,13 +238,18 @@ export const sendHandlers: GatewayRequestHandlers = {
             route: derivedRoute,
           });
         }
+        const outboundSession = buildOutboundSessionContext({
+          cfg,
+          agentId: effectiveAgentId,
+          sessionKey: providedSessionKey ?? derivedRoute?.sessionKey,
+        });
         const results = await deliverOutboundPayloads({
           cfg,
           channel: outboundChannel,
           to: resolved.to,
           accountId,
           payloads: [{ text: message, mediaUrl, mediaUrls }],
-          agentId: effectiveAgentId,
+          session: outboundSession,
           gifPlayback: request.gifPlayback,
           threadId: threadId ?? null,
           deps: outboundDeps,

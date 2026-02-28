@@ -1,10 +1,16 @@
-import { collectTextContentBlocks } from "../../agents/content-blocks.js";
-import { createOpenClawTools } from "../../agents/openclaw-tools.js";
 import type { SkillCommandSpec } from "../../agents/skills.js";
-import { applyOwnerOnlyToolPolicy } from "../../agents/tool-policy.js";
-import { getChannelDock } from "../../channels/dock.js";
 import type { OpenClawConfig } from "../../config/config.js";
 import type { SessionEntry } from "../../config/sessions.js";
+import type { MsgContext, TemplateContext } from "../templating.js";
+import type { ElevatedLevel, ReasoningLevel, ThinkLevel, VerboseLevel } from "../thinking.js";
+import type { GetReplyOptions, ReplyPayload } from "../types.js";
+import type { InlineDirectives } from "./directive-handling.js";
+import type { createModelSelectionState } from "./model-selection.js";
+import type { TypingController } from "./typing.js";
+import { collectTextContentBlocks } from "../../agents/content-blocks.js";
+import { createOpenClawTools } from "../../agents/openclaw-tools.js";
+import { applyOwnerOnlyToolPolicy } from "../../agents/tool-policy.js";
+import { getChannelDock } from "../../channels/dock.js";
 import { logVerbose } from "../../globals.js";
 import { generateSecureToken } from "../../infra/secure-random.js";
 import { resolveGatewayMessageChannel } from "../../utils/message-channel.js";
@@ -13,16 +19,16 @@ import {
   listSkillCommandsForWorkspace,
   resolveSkillCommandInvocation,
 } from "../skill-commands.js";
-import type { MsgContext, TemplateContext } from "../templating.js";
-import type { ElevatedLevel, ReasoningLevel, ThinkLevel, VerboseLevel } from "../thinking.js";
-import type { GetReplyOptions, ReplyPayload } from "../types.js";
-import { getAbortMemory } from "./abort.js";
+import {
+  clearAbortCutoffInSession,
+  readAbortCutoffFromSessionEntry,
+  resolveAbortCutoffFromContext,
+  shouldSkipMessageByAbortCutoff,
+} from "./abort-cutoff.js";
+import { getAbortMemory, isAbortRequestText } from "./abort.js";
 import { buildStatusReply, handleCommands } from "./commands.js";
-import type { InlineDirectives } from "./directive-handling.js";
 import { isDirectiveOnly } from "./directive-handling.js";
-import type { createModelSelectionState } from "./model-selection.js";
 import { extractInlineSimpleCommand } from "./reply-inline.js";
-import type { TypingController } from "./typing.js";
 
 const builtinSlashCommands = (() => {
   return listReservedChatSlashCommandNames([
@@ -251,6 +257,32 @@ export async function handleInlineActions(params: {
     }
     await opts.onBlockReply(reply);
   };
+
+  const isStopLikeInbound = isAbortRequestText(command.rawBodyNormalized);
+  if (!isStopLikeInbound && sessionEntry) {
+    const cutoff = readAbortCutoffFromSessionEntry(sessionEntry);
+    const incoming = resolveAbortCutoffFromContext(ctx);
+    const shouldSkip = cutoff
+      ? shouldSkipMessageByAbortCutoff({
+          cutoffMessageSid: cutoff.messageSid,
+          cutoffTimestamp: cutoff.timestamp,
+          messageSid: incoming?.messageSid,
+          timestamp: incoming?.timestamp,
+        })
+      : false;
+    if (shouldSkip) {
+      typing.cleanup();
+      return { kind: "reply", reply: undefined };
+    }
+    if (cutoff) {
+      await clearAbortCutoffInSession({
+        sessionEntry,
+        sessionStore,
+        sessionKey,
+        storePath,
+      });
+    }
+  }
 
   const inlineCommand =
     allowTextCommands && command.isAuthorizedSender

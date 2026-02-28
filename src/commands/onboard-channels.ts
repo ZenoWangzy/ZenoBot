@@ -1,23 +1,30 @@
+import type { ChannelMeta } from "../channels/plugins/types.js";
+import type { OpenClawConfig } from "../config/config.js";
+import type { DmPolicy } from "../config/types.js";
+import type { RuntimeEnv } from "../runtime.js";
+import type { WizardPrompter, WizardSelectOption } from "../wizard/prompts.js";
+import type { ChannelChoice } from "./onboard-types.js";
+import type {
+  ChannelOnboardingConfiguredResult,
+  ChannelOnboardingDmPolicy,
+  ChannelOnboardingResult,
+  ChannelOnboardingStatus,
+  SetupChannelsOptions,
+} from "./onboarding/types.js";
 import { resolveAgentWorkspaceDir, resolveDefaultAgentId } from "../agents/agent-scope.js";
 import { listChannelPluginCatalogEntries } from "../channels/plugins/catalog.js";
 import { resolveChannelDefaultAccountId } from "../channels/plugins/helpers.js";
 import { listChannelPlugins, getChannelPlugin } from "../channels/plugins/index.js";
-import type { ChannelMeta } from "../channels/plugins/types.js";
 import {
   formatChannelPrimerLine,
   formatChannelSelectionLine,
   listChatChannels,
 } from "../channels/registry.js";
 import { formatCliCommand } from "../cli/command-format.js";
-import type { OpenClawConfig } from "../config/config.js";
 import { isChannelConfigured } from "../config/plugin-auto-enable.js";
-import type { DmPolicy } from "../config/types.js";
 import { enablePluginInConfig } from "../plugins/enable.js";
 import { DEFAULT_ACCOUNT_ID, normalizeAccountId } from "../routing/session-key.js";
-import type { RuntimeEnv } from "../runtime.js";
 import { formatDocsLink } from "../terminal/links.js";
-import type { WizardPrompter, WizardSelectOption } from "../wizard/prompts.js";
-import type { ChannelChoice } from "./onboard-types.js";
 import {
   ensureOnboardingPluginInstalled,
   reloadOnboardingPluginRegistry,
@@ -26,11 +33,6 @@ import {
   getChannelOnboardingAdapter,
   listChannelOnboardingAdapters,
 } from "./onboarding/registry.js";
-import type {
-  ChannelOnboardingDmPolicy,
-  ChannelOnboardingStatus,
-  SetupChannelsOptions,
-} from "./onboarding/types.js";
 
 type ConfiguredChannelAction = "update" | "disable" | "delete" | "skip";
 
@@ -488,6 +490,26 @@ export async function setupChannels(
     return true;
   };
 
+  const applyOnboardingResult = async (channel: ChannelChoice, result: ChannelOnboardingResult) => {
+    next = result.cfg;
+    if (result.accountId) {
+      recordAccount(channel, result.accountId);
+    }
+    addSelection(channel);
+    await refreshStatus(channel);
+  };
+
+  const applyCustomOnboardingResult = async (
+    channel: ChannelChoice,
+    result: ChannelOnboardingConfiguredResult,
+  ) => {
+    if (result === "skip") {
+      return false;
+    }
+    await applyOnboardingResult(channel, result);
+    return true;
+  };
+
   const configureChannel = async (channel: ChannelChoice) => {
     const adapter = getChannelOnboardingAdapter(channel);
     if (!adapter) {
@@ -503,17 +525,29 @@ export async function setupChannels(
       shouldPromptAccountIds,
       forceAllowFrom: forceAllowFromChannels.has(channel),
     });
-    next = result.cfg;
-    if (result.accountId) {
-      recordAccount(channel, result.accountId);
-    }
-    addSelection(channel);
-    await refreshStatus(channel);
+    await applyOnboardingResult(channel, result);
   };
 
   const handleConfiguredChannel = async (channel: ChannelChoice, label: string) => {
     const plugin = getChannelPlugin(channel);
     const adapter = getChannelOnboardingAdapter(channel);
+    if (adapter?.configureWhenConfigured) {
+      const custom = await adapter.configureWhenConfigured({
+        cfg: next,
+        runtime,
+        prompter,
+        options,
+        accountOverrides,
+        shouldPromptAccountIds,
+        forceAllowFrom: forceAllowFromChannels.has(channel),
+        configured: true,
+        label,
+      });
+      if (!(await applyCustomOnboardingResult(channel, custom))) {
+        return;
+      }
+      return;
+    }
     const supportsDisable = Boolean(
       options?.allowDisable && (plugin?.config.setAccountEnabled || adapter?.disable),
     );
@@ -615,9 +649,27 @@ export async function setupChannels(
     }
 
     const plugin = getChannelPlugin(channel);
+    const adapter = getChannelOnboardingAdapter(channel);
     const label = plugin?.meta.label ?? catalogEntry?.meta.label ?? channel;
     const status = statusByChannel.get(channel);
     const configured = status?.configured ?? false;
+    if (adapter?.configureInteractive) {
+      const custom = await adapter.configureInteractive({
+        cfg: next,
+        runtime,
+        prompter,
+        options,
+        accountOverrides,
+        shouldPromptAccountIds,
+        forceAllowFrom: forceAllowFromChannels.has(channel),
+        configured,
+        label,
+      });
+      if (!(await applyCustomOnboardingResult(channel, custom))) {
+        return;
+      }
+      return;
+    }
     if (configured) {
       await handleConfiguredChannel(channel, label);
       return;

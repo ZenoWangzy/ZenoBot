@@ -1,8 +1,9 @@
+import type { ApiClientOptions } from "grammy";
 import { sequentialize } from "@grammyjs/runner";
 import { apiThrottler } from "@grammyjs/transformer-throttler";
 import { type Message, type UserFromGetMe } from "@grammyjs/types";
-import type { ApiClientOptions } from "grammy";
 import { Bot, webhookCallback } from "grammy";
+import type { OpenClawConfig, ReplyToMode } from "../config/config.js";
 import { resolveDefaultAgentId } from "../agents/agent-scope.js";
 import { resolveTextChunkLimit } from "../auto-reply/chunk.js";
 import { isAbortRequestText } from "../auto-reply/reply/abort.js";
@@ -12,7 +13,6 @@ import {
   resolveNativeCommandsEnabled,
   resolveNativeSkillsEnabled,
 } from "../config/commands.js";
-import type { OpenClawConfig, ReplyToMode } from "../config/config.js";
 import { loadConfig } from "../config/config.js";
 import {
   resolveChannelGroupPolicy,
@@ -40,6 +40,7 @@ import {
   resolveTelegramStreamMode,
 } from "./bot/helpers.js";
 import { resolveTelegramFetch } from "./fetch.js";
+import { createTelegramSendChatActionHandler } from "./sendchataction-401-backoff.js";
 
 export type TelegramBotOptions = {
   token: string;
@@ -348,6 +349,20 @@ export function createTelegramBot(opts: TelegramBotOptions) {
     return { groupConfig, topicConfig };
   };
 
+  // Global sendChatAction handler with 401 backoff / circuit breaker (issue #27092).
+  // Created BEFORE the message processor so it can be injected into every message context.
+  // Shared across all message contexts for this account so that consecutive 401s
+  // from ANY chat are tracked together — prevents infinite retry storms.
+  const sendChatActionHandler = createTelegramSendChatActionHandler({
+    sendChatActionFn: (chatId, action, threadParams) =>
+      bot.api.sendChatAction(
+        chatId,
+        action,
+        threadParams as Parameters<typeof bot.api.sendChatAction>[2],
+      ),
+    logger: (message) => logVerbose(`telegram: ${message}`),
+  });
+
   const processMessage = createTelegramMessageProcessor({
     bot,
     cfg,
@@ -363,6 +378,7 @@ export function createTelegramBot(opts: TelegramBotOptions) {
     resolveGroupActivation,
     resolveGroupRequireMention,
     resolveTelegramGroupConfig,
+    sendChatActionHandler,
     runtime,
     replyToMode,
     streamMode,

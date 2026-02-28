@@ -1,5 +1,5 @@
-import * as fs from "node:fs/promises";
 import { Command } from "commander";
+import * as fs from "node:fs/promises";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { IOS_NODE, createIosNodeListResponse } from "./program.nodes-test-helpers.js";
 import { callGateway, installBaseProgramMocks, runtime } from "./program.test-mocks.js";
@@ -282,6 +282,38 @@ describe("cli program (nodes media)", () => {
     expect(runtime.error.mock.calls.some(([msg]) => /invalid facing/i.test(String(msg)))).toBe(
       true,
     );
+  });
+
+  it("fails nodes camera snap when --facing both and --device-id are combined", async () => {
+    mockNodeGateway();
+
+    const program = new Command();
+    program.exitOverride();
+    registerNodesCli(program);
+    runtime.error.mockClear();
+
+    await expect(
+      program.parseAsync(
+        [
+          "nodes",
+          "camera",
+          "snap",
+          "--node",
+          "ios-node",
+          "--facing",
+          "both",
+          "--device-id",
+          "cam-123",
+        ],
+        { from: "user" },
+      ),
+    ).rejects.toThrow(/exit/i);
+
+    expect(
+      runtime.error.mock.calls.some(([msg]) =>
+        /facing=both is not allowed when --device-id is set/i.test(String(msg)),
+      ),
+    ).toBe(true);
   });
 
   describe("URL-based payloads", () => {

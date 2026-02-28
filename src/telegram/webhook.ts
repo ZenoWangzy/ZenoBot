@@ -1,6 +1,7 @@
-import { createServer } from "node:http";
 import { webhookCallback } from "grammy";
+import { createServer } from "node:http";
 import type { OpenClawConfig } from "../config/config.js";
+import type { RuntimeEnv } from "../runtime.js";
 import { isDiagnosticsEnabled } from "../infra/diagnostic-events.js";
 import { formatErrorMessage } from "../infra/errors.js";
 import { readJsonBodyWithLimit } from "../infra/http-body.js";
@@ -11,7 +12,6 @@ import {
   startDiagnosticHeartbeat,
   stopDiagnosticHeartbeat,
 } from "../logging/diagnostic.js";
-import type { RuntimeEnv } from "../runtime.js";
 import { defaultRuntime } from "../runtime.js";
 import { resolveTelegramAllowedUpdates } from "./allowed-updates.js";
 import { withTelegramApiErrorLogging } from "./api-logging.js";
@@ -222,6 +222,8 @@ export async function startTelegramWebhook(opts: {
     port,
     host,
   });
+  const boundAddress = server.address();
+  const boundPort = boundAddress && typeof boundAddress !== "string" ? boundAddress.port : port;
 
   const publicUrl = resolveWebhookPublicUrl({
     configuredPublicUrl: opts.publicUrl,
@@ -250,7 +252,8 @@ export async function startTelegramWebhook(opts: {
     throw err;
   }
 
-  runtime.log?.(`webhook listening on ${publicUrl}`);
+  runtime.log?.(`webhook local listener on http://${host}:${boundPort}${path}`);
+  runtime.log?.(`webhook advertised to telegram on ${publicUrl}`);
 
   let shutDown = false;
   const shutdown = () => {
