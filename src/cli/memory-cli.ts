@@ -830,7 +830,7 @@ export function registerMemoryCli(program: Command) {
             const { DatabaseSync } = await import("node:sqlite");
             const db = new DatabaseSync(dbPath, { open: true });
             try {
-              const result = runMaintenance({
+              const result = await runMaintenance({
                 db,
                 options: {
                   compact: Boolean(opts.compact),
