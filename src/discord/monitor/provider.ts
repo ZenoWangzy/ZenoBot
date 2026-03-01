@@ -9,6 +9,7 @@ import {
 import { GatewayCloseCodes, type GatewayPlugin } from "@buape/carbon/gateway";
 import { VoicePlugin } from "@buape/carbon/voice";
 import { Routes } from "discord-api-types/v10";
+import { ProxyAgent, setGlobalDispatcher } from "undici";
 import { inspect } from "node:util";
 import type { HistoryEntry } from "../../auto-reply/reply/history.js";
 import type { OpenClawConfig, ReplyToMode } from "../../config/config.js";
@@ -266,6 +267,21 @@ export async function monitorDiscordProvider(opts: MonitorDiscordOpts = {}) {
   const discordAccountThreadBindings =
     cfg.channels?.discord?.accounts?.[account.accountId]?.threadBindings;
   const discordRestFetch = resolveDiscordRestFetch(rawDiscordCfg.proxy, runtime);
+
+  // Set global dispatcher for @buape/carbon library's internal fetch calls.
+  // The carbon library uses global fetch directly without proxy support,
+  // so we need to set a global dispatcher to make all REST API calls go through the proxy.
+  const proxyUrl = rawDiscordCfg.proxy?.trim();
+  if (proxyUrl) {
+    try {
+      const proxyAgent = new ProxyAgent(proxyUrl);
+      setGlobalDispatcher(proxyAgent);
+      runtime.log?.("discord: global rest proxy dispatcher enabled");
+    } catch (err) {
+      runtime.error?.(danger(`discord: failed to set global proxy dispatcher: ${String(err)}`));
+    }
+  }
+
   const dmConfig = rawDiscordCfg.dm;
   let guildEntries = rawDiscordCfg.guilds;
   const defaultGroupPolicy = resolveDefaultGroupPolicy(cfg);
