@@ -40,6 +40,9 @@
 | `scripts/ui.js` | UI 构建/开发 |
 | `scripts/protocol-gen.ts` | 协议生成 |
 | `scripts/package-mac-app.sh` | macOS 打包 |
+| `scripts/openclaw-health-check.sh` | Gateway 健康检查 (每30s) |
+| `scripts/openclaw-fix.sh` | Gateway 自动修复 (Claude Code) |
+| `scripts/install-monitor.sh` | 监控服务安装/卸载 |
 
 ---
 
@@ -53,9 +56,14 @@ scripts/
 ├── protocol-gen.ts          # 协议生成
 ├── package-mac-app.sh       # macOS 打包
 ├── build-icon.sh            # 图标构建
+├── openclaw-health-check.sh # 健康检查
+├── openclaw-fix.sh          # 自动修复
+├── install-monitor.sh       # 监控安装
 ├── docs-i18n/               # 文档国际化
 │   └── *.go
 ├── docker/                  # Docker 脚本
 ├── e2e/                     # E2E 测试脚本
+├── launchd/                 # LaunchAgent 模板
+│   └── ai.openclaw.monitor.plist
 └── systemd/                 # systemd 服务文件
 ```
