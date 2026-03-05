@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>ai.openclaw.monitor</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>__SCRIPT_PATH__</string>
+    </array>
+    <key>StartInterval</key>
+    <integer>30</integer>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/tmp/openclaw-monitor.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/openclaw-monitor.err.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>OPENCLAW_GATEWAY_PORT</key>
+        <string>18789</string>
+        <key>OPENCLAW_FIX_MAX_RETRIES</key>
+        <string>2</string>
+        <key>OPENCLAW_CLAUDE_TIMEOUT</key>
+        <string>300</string>
+    </dict>
+</dict>
+</plist>
