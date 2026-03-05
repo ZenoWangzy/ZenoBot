@@ -16,12 +16,15 @@ LOG_FILE="/tmp/openclaw-fix.log"
 GATEWAY_ERR_LOG="$HOME/.openclaw/logs/gateway.err.log"
 GATEWAY_LOG="$HOME/.openclaw/logs/gateway.log"
 
-# ============ flock 锁 (防止并发执行) ============
-exec 200>"$LOCK_FILE"
-if ! flock -n 200; then
+# ============ mkdir 锁 (防止并发执行, macOS 兼容) ============
+# 使用 mkdir 原子操作替代 flock (macOS 不含 flock)
+LOCK_DIR="/tmp/openclaw-fix.lock"
+if ! mkdir "$LOCK_DIR" 2>/dev/null; then
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] Another fix is running, skipping..." >> "$LOG_FILE"
     exit 0
 fi
+# 确保退出时清理锁
+trap 'rmdir "$LOCK_DIR" 2>/dev/null' EXIT
 
 # ============ 日志函数 ============
 log() {
