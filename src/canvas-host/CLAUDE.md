@@ -10,6 +10,9 @@
 
 ## 变更记录 (Changelog)
 
+### 2026-03-06
+- 添加 A2UI bundle 构建命令
+
 ### 2026-02-11
 - 创建模块文档
 
@@ -29,6 +32,14 @@
 
 ### 主要入口
 - `src/canvas-host/server.ts` - Canvas 服务器
+
+### 构建命令
+```bash
+# 生成 A2UI bundle
+pnpm canvas:a2ui:bundle
+# 或
+./scripts/bundle-a2ui.sh
+```
 
 ### 关键文件
 
