@@ -1,0 +1,24 @@
+{
+  "task_name": "test-short-task",
+  "run_id": "1772876444-test-short-task",
+  "status": "done",
+  "created_at": 1772876444,
+  "started_at": 1772876444,
+  "updated_at": 1772876455,
+  "notify": {
+    "start_sent": true,
+    "last_progress_at": 1772876445,
+    "completion_sent": true,
+    "failure_sent": false
+  },
+  "watcher": {
+    "enabled": true,
+    "interval_sec": 300,
+    "pid": null
+  },
+  "result": {
+    "exit_code": 0,
+    "summary": "Short task completed in 10 seconds",
+    "completed_at": 1772876455
+  }
+}

@@ -1,0 +1,30 @@
+只优化这两个文件，不要碰别的：
+1. /Users/ZenoWang/Documents/project/openclaw/docs/plans/2026-03-07-cc-auto-recover-design.md
+2. /Users/ZenoWang/Documents/project/openclaw/docs/plans/2026-03-07-cc-auto-recover-impl.md
+
+目标：把它们优化成可直接指导实现的一对文档。
+
+必须修正并对齐：
+- DATA_DIR 指向真实 dispatch data root，不能写成假路径
+- lease 语义：明确 plain mv 不是强原子 CAS；要求 lock + write + read-back verify，并在实现文档中避免假装已经完全解决并发
+- re_dispatch budget 按 task_name 跨 running/done 全局统计
+- continue 在没有 continuation channel 时 fail-closed，不能把 tmux 当唯一默认可用前提
+- duplicate handling 明确 benign / suppressible / dangerous，且只有 dangerous 默认报警
+- alert cooldown reason 使用标准 enum，不要混 raw error strings
+- stall/activity detection 必须是 run-scoped，不得依赖 latest.json 作为任务级真相
+- safe reentrant 的 Class B 判定改为 upstream/PR existence，不要再用 git diff origin/main...HEAD 作为是否已发布代理
+
+对 impl.md 的额外要求：
+- 明确区分：normative requirements / illustrative pseudocode / placeholders / TODOs
+- 修复明显 bash 坑：数组展开、函数调用传参、注释和实现不一致、json_set/tmp 变量混乱、误导性占位代码
+- 对尚未真正实现的地方，直说是 placeholder，不要装完成
+- 末尾补一个短的 Open items / non-goals
+
+输出要求：
+- 直接编辑文件
+- 完成后输出一个简短总结：
+  A) design 改了什么
+  B) impl 改了什么
+  C) 剩余风险
+- 如果过程中发现原文档某处逻辑互相打架，优先消除冲突，宁可删掉过时片段也不要并存
+- 不要改 unrelated files
