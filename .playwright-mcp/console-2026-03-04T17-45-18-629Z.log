@@ -1,0 +1,12 @@
+[    1664ms] [ERROR] Not signed in with the identity provider. @ https://x.com/i/article/2025654698590748672:0
+[    1665ms] [ERROR] [GSI_LOGGER]: FedCM get() rejects with AbortError: signal is aborted without reason @ https://accounts.google.com/gsi/client:81
+[    1665ms] [ERROR] Not signed in with the identity provider. @ https://x.com/i/article/2025654698590748672:0
+[    2397ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://api.x.com/graphql/zrSRXJmE1vj37AUmkh2oGg/ArticleRedirectScreenQuery?variables=%7B%22articleEntityId%22%3A%222025654698590748672%22%7D:0
+[    2957ms] [ERROR] Failed to load resource: the server responded with a status of 403 () @ https://api.x.com/1.1/graphql/error_log.json:0
+[   32722ms] [ERROR] [GSI_LOGGER]: FedCM get() rejects with NetworkError: Error retrieving a token. @ https://accounts.google.com/gsi/client:81
+[10801943ms] [ERROR] Failed to load resource: the server responded with a status of 403 () @ https://api.x.com/1.1/graphql/user_flow.json:0
+[10801952ms] [ERROR] Failed to load resource: the server responded with a status of 403 () @ https://api.x.com/1.1/hashflags.json:0
+[10801954ms] [ERROR] Failed to load resource: the server responded with a status of 403 () @ https://api.x.com/1.1/help/settings.json?include_zero_rate=true&feature_set_token=31ae05abe14d57f824d89311c3305b83abf5d23b&settings_version=3dd0045b5d0311a570a1f88b8a58aa9e:0
+[21902005ms] [ERROR] Failed to load resource: the server responded with a status of 403 () @ https://api.x.com/1.1/graphql/user_flow.json:0
+[21902261ms] [ERROR] Failed to load resource: the server responded with a status of 403 () @ https://api.x.com/1.1/graphql/user_flow.json:0
+[21903203ms] [ERROR] Failed to load resource: the server responded with a status of 403 () @ https://api.x.com/1.1/graphql/user_flow.json:0

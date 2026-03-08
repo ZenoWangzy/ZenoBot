@@ -1,0 +1,49 @@
+---
+
+## 修改总结
+
+### A) design.md 改了什么
+
+1. **Implementation Guardrails 全面强化** - 新增 3 条关键规则：
+   - DATA_DIR 必须指向真实 dispatch data root
+   - Alert cooldown 使用标准 enum
+   - Class B 判定改用 upstream/PR existence
+
+2. **DATA_DIR 路径明确化** - 删除"varies by deployment"模糊表述，直接指向 `$HOME/.openclaw/workspace/claude-code-dispatch-macos/data`
+
+3. **Class B 判定逻辑修正** - 删除 `git diff origin/main...HEAD` 的错误做法，改用：
+   ```bash
+   upstream=$(git -C "$worktree" rev-parse --abbrev-ref --symbolic-full-name '@{u}')
+   pr_num=$(gh pr list --head "$branch" --json number -q '.[0].number')
+   ```
+
+---
+
+### B) impl.md 改了什么
+
+1. **Critical Corrections 标记为 NORMATIVE** - 强调这些是不可妥协的规范要求
+
+2. **修复 Bash 坑**：
+   - `json_set` 函数添加 `$$` 避免并发 tmp 文件冲突
+   - `find_duplicates` 返回值改为使用 `mapfile` 正确处理数组
+   - 所有路径拼接从 `${run_dir}task-output.txt` 改为 `${run_dir}/task-output.txt`
+   - 所有目录遍历添加空目录保护（`[[ -d "${dir}" ]] || return 0`）
+
+3. **Class B 判定逻辑对齐** - 与 design.md 保持一致，使用 upstream/PR 检查
+
+4. **末尾新增"Open items / non-goals"** - 明确标识：
+   - Placeholder（如 `execute_redispatch` 未实现实际 dispatch）
+   - TODOs（如更强的 lease 原子性）
+   - Out-of-scope（如实时监控、分布式协调）
+
+---
+
+### C) 剩余风险
+
+1. **Lease 原子性仍非真正 CAS** - 文档已明确说明这不是完整的 Compare-And-Swap，并发监控可能仍会 race。建议生产环境考虑 `flock` 或 lockdir。
+
+2. **re_dispatch 未实现真正调度** - `execute_redispatch()` 只是占位符，标记当前 run 为 superseded，但没有真正调用 dispatch 系统创建新 run。
+
+3. **Alert 状态不持久** - Cooldown 存储在 `/tmp/`，重启后会丢失。
+
+4. **Tmux 作为唯一 continue 通道** - 虽然代码预留了 `continuation_channel` 字段，但只有 tmux 实现了，其他通道都是 fail-closed。
