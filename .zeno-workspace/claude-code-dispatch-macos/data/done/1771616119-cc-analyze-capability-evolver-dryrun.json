@@ -1,0 +1,27 @@
+{
+  "task_name": "cc-analyze-capability-evolver-dryrun",
+  "prompt": "Analyze why capability-evolver dry-run fails with protocol violations: missing_or_invalid_mutation and missing_or_invalid_personality_state, while dotenv prints '[injecting env (0)]'. Investigate likely root causes from runtime behavior and propose a practical remediation plan for this setup. Deliver output as markdown file: /Users/ZenoWang/.openclaw/workspace/capability-evolver-dryrun-analysis.md. Include: (1) what is not an error, (2) actual failure causes, (3) safe operational mode recommendation, (4) concrete fixes with commands, (5) validation checklist. End with READY_FOR_REVIEW.",
+  "workdir": "/Users/ZenoWang/.openclaw/workspace",
+  "enqueued_at": "2026-02-21T03:35:19+08:00",
+  "callback": {
+    "channel": "discord",
+    "target": "853303202236858379",
+    "account": ""
+  },
+  "permission_mode": "bypassPermissions",
+  "allowed_tools": "",
+  "agent_teams": 0,
+  "teammate_mode": "auto",
+  "model": "",
+  "claude_bin": "/Users/ZenoWang/.local/bin/claude",
+  "timeout_min": 5,
+  "stall_min": 8,
+  "required_outputs": ["capability-evolver-dryrun-analysis.md"],
+  "status": "done",
+  "started_at": "2026-02-21T04:09:36+08:00",
+  "worker_id": "w1",
+  "run_id": "1771616119-cc-analyze-capability-evolver-dryrun",
+  "finished_at": "2026-02-21T04:09:37+08:00",
+  "exit_code": 0,
+  "event": "ForcedStopAfterDeliverable"
+}

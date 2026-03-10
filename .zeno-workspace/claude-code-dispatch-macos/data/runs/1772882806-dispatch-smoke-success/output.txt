@@ -1,0 +1,3 @@
+fake claude: start
+fake claude: working
+fake claude: done

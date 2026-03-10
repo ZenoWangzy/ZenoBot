@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.openclaw.watchdog</string>
+
+    <key>Comment</key>
+    <string>OpenClaw Watchdog - Monitors gateway health and triggers fixer</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>__HOME__/clawd/scripts/openclaw-watchdog.sh</string>
+    </array>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key>
+        <string>__HOME__</string>
+        <key>OPENCLAW_STATE_DIR</key>
+        <string>__HOME__/.local/state/openclaw</string>
+    </dict>
+
+    <!-- Run every 30 seconds -->
+    <key>StartInterval</key>
+    <integer>30</integer>
+
+    <!-- Run immediately on load -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- Working directory -->
+    <key>WorkingDirectory</key>
+    <string>__HOME__</string>
+
+    <!-- Log paths -->
+    <key>StandardOutPath</key>
+    <string>__HOME__/.local/state/openclaw/logs/watchdog.log</string>
+    <key>StandardErrorPath</key>
+    <string>__HOME__/.local/state/openclaw/logs/watchdog.err.log</string>
+</dict>
+</plist>

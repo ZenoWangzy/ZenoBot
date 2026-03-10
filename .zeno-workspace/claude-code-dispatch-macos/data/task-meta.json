@@ -1,0 +1,21 @@
+{
+  "run_id": "1772899062-dispatch-smoke-fail-v2",
+  "task_name": "dispatch-smoke-fail-v2",
+  "prompt": "smoke prompt fail",
+  "workdir": "/Users/ZenoWang/.openclaw/workspace/claude-code-dispatch-macos",
+  "started_at": "2026-03-07T23:57:42+08:00",
+  "callback": {
+    "channel": "discord",
+    "target": "853303202236858379",
+    "account": ""
+  },
+  "required_output": "",
+  "status": "failed",
+  "exit_code": -1,
+  "notify": {
+    "start_sent": true,
+    "last_progress_at": 0,
+    "completion_sent": false,
+    "failure_sent": true
+  }
+}

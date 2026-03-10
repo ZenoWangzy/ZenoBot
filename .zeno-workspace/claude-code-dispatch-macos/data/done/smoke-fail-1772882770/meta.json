@@ -1,0 +1,25 @@
+{
+  "task_name": "smoke-fail-test",
+  "run_id": "smoke-fail-1772882770",
+  "status": "failed",
+  "created_at": 1772882770,
+  "started_at": 1772882770,
+  "updated_at": 1772882772,
+  "notify": {
+    "start_sent": true,
+    "last_progress_at": 1772882771,
+    "completion_sent": false,
+    "failure_sent": true
+  },
+  "watcher": {
+    "enabled": true,
+    "interval_sec": 300,
+    "pid": null
+  },
+  "result": {
+    "exit_code": 23,
+    "summary": "Task failed with exit code 23",
+    "error_tail": "manual smoke failure",
+    "failed_at": 1772882773
+  }
+}

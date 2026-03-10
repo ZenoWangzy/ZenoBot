@@ -1,0 +1,24 @@
+{
+  "task_name": "cc-retry-filter-test",
+  "prompt": "Return OK",
+  "workdir": "/Users/ZenoWang/.openclaw/workspace",
+  "enqueued_at": "2026-02-21T01:02:03+08:00",
+  "callback": {
+    "channel": "discord",
+    "target": "853303202236858379",
+    "account": ""
+  },
+  "permission_mode": "bypassPermissions",
+  "allowed_tools": "",
+  "agent_teams": 0,
+  "teammate_mode": "auto",
+  "model": "",
+  "claude_bin": "/Users/ZenoWang/.local/bin/claude",
+  "timeout_min": 1,
+  "stall_min": 8,
+  "required_outputs": [],
+  "status": "running",
+  "started_at": "2026-02-21T02:07:55+08:00",
+  "worker_id": "w1",
+  "run_id": "1771606923-cc-retry-filter-test"
+}

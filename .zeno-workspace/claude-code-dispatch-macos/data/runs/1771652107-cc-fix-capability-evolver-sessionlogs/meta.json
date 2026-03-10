@@ -1,0 +1,24 @@
+{
+  "task_name": "cc-fix-capability-evolver-sessionlogs",
+  "prompt": "You are fixing capability-evolver integration quality for this machine. Context: capability-evolver can run, MEMORY/USER are visible, but signal 'session_logs_missing' persists and evolution quality is degraded. Goal: implement minimal, safe fixes so capability-evolver can consistently locate and use recent session logs in this environment. Constraints: do not change unrelated systems; keep blast radius small; add clear docs. Deliverables: (1) a patch in the relevant repo/config paths, (2) /Users/ZenoWang/.openclaw/workspace/capability-evolver-sessionlogs-fix-report.md with root cause, exact changes, validation commands, rollback steps. Validation must include running capability-evolver once and confirming session_logs_missing is gone or clearly reduced with evidence. End report with READY_FOR_REVIEW.",
+  "workdir": "/Users/ZenoWang/.openclaw/workspace",
+  "enqueued_at": "2026-02-21T13:35:07+08:00",
+  "callback": {
+    "channel": "discord",
+    "target": "853303202236858379",
+    "account": ""
+  },
+  "permission_mode": "bypassPermissions",
+  "allowed_tools": "",
+  "agent_teams": 0,
+  "teammate_mode": "auto",
+  "model": "",
+  "claude_bin": "/Users/ZenoWang/.local/bin/claude",
+  "timeout_min": 12,
+  "stall_min": 8,
+  "required_outputs": ["capability-evolver-sessionlogs-fix-report.md"],
+  "status": "running",
+  "started_at": "2026-02-21T14:59:10+08:00",
+  "worker_id": "w1",
+  "run_id": "1771652107-cc-fix-capability-evolver-sessionlogs"
+}

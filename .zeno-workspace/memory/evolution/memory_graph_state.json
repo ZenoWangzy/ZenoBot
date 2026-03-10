@@ -1,0 +1,45 @@
+{
+  "last_action": {
+    "action_id": "act_1771977898103_0297ea7c",
+    "signal_key": "session_logs_missing",
+    "signals": ["session_logs_missing"],
+    "mutation_id": "mut_1771977898102",
+    "mutation_category": "optimize",
+    "mutation_risk_level": "low",
+    "personality_key": "rigor=0.7|creativity=0.3|verbosity=0.3|risk_tolerance=0.4|obedience=0.9",
+    "personality_state": {
+      "type": "PersonalityState",
+      "rigor": 0.7,
+      "creativity": 0.35,
+      "verbosity": 0.25,
+      "risk_tolerance": 0.4,
+      "obedience": 0.85
+    },
+    "gene_id": null,
+    "gene_category": null,
+    "hypothesis_id": "hyp_1771977898102_3c9a8461",
+    "capsules_used": [],
+    "had_error": false,
+    "created_at": "2026-02-25T00:04:58.103Z",
+    "outcome_recorded": false,
+    "baseline_observed": {
+      "agent": "main",
+      "session_scope": null,
+      "drift_enabled": false,
+      "review_mode": false,
+      "dry_run": false,
+      "system_health": "Uptime: 541.9h | Node: v24.11.1 | Agent RSS: 55.6MB | Disk: 29% (659.3G free) | Node Processes: 122 | Integrations: Gemini Key Missing",
+      "mood": "Mood: Unknown",
+      "scan_ms": 278,
+      "memory_size_bytes": 5510,
+      "recent_error_count": 0,
+      "node": "v24.11.1",
+      "platform": "darwin",
+      "cwd": "/Users/ZenoWang/.openclaw/workspace/skills/evolver",
+      "evidence": {
+        "recent_session_tail": "[NO JSONL FILES]",
+        "today_log_tail": "[MISSING] /Users/ZenoWang/.openclaw/workspace/memory/2026-02-24.md"
+      }
+    }
+  }
+}
