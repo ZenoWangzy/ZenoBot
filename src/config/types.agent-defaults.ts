@@ -260,6 +260,13 @@ export type AgentDefaultsConfig = {
      * Default: false (only the final heartbeat payload is delivered).
      */
     includeReasoning?: boolean;
+    /** Unresponded message detection config */
+    unresponded?: {
+      /** Enable unresponded detection (default: false) */
+      enabled?: boolean;
+      /** Timeout before triggering (duration string, default: 10m) */
+      timeout?: string;
+    };
   };
   /** Max concurrent agent runs across all conversations. Default: 1 (sequential). */
   maxConcurrent?: number;
