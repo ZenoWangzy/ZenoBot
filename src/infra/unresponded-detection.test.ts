@@ -144,4 +144,51 @@ describe("checkUnrespondedMessages", () => {
       expect(result?.preview).toBeUndefined();
     });
   });
+
+  describe("cooldown mechanism", () => {
+    it("returns null when lastUnrespondedWakeAt is within cooldown period (5m default)", () => {
+      const session = createSession({
+        lastInboundAt: now - 600000, // 10 min ago
+        lastOutboundAt: 0,
+        lastUnrespondedWakeAt: now - 240000, // 4 min ago (within 5m cooldown)
+      });
+      const result = checkUnrespondedMessages({ enabled: true }, session);
+      expect(result).toBeNull();
+    });
+
+    it("returns result when lastUnrespondedWakeAt is outside cooldown period", () => {
+      const session = createSession({
+        lastInboundAt: now - 600000, // 10 min ago
+        lastOutboundAt: 0,
+        lastUnrespondedWakeAt: now - 360000, // 6 min ago (outside 5m cooldown)
+      });
+      const result = checkUnrespondedMessages({ enabled: true }, session);
+      expect(result).not.toBeNull();
+    });
+
+    it("returns result when lastUnrespondedWakeAt is undefined", () => {
+      const session = createSession({
+        lastInboundAt: now - 600000, // 10 min ago
+        lastOutboundAt: 0,
+      });
+      const result = checkUnrespondedMessages({ enabled: true }, session);
+      expect(result).not.toBeNull();
+    });
+
+    it("respects custom cooldown duration", () => {
+      const session = createSession({
+        lastInboundAt: now - 600000, // 10 min ago
+        lastOutboundAt: 0,
+        lastUnrespondedWakeAt: now - 180000, // 3 min ago
+      });
+
+      // With 2m cooldown, should return result (3m > 2m)
+      const result1 = checkUnrespondedMessages({ enabled: true, cooldown: "2m" }, session);
+      expect(result1).not.toBeNull();
+
+      // With 5m cooldown, should return null (3m < 5m)
+      const result2 = checkUnrespondedMessages({ enabled: true, cooldown: "5m" }, session);
+      expect(result2).toBeNull();
+    });
+  });
 });

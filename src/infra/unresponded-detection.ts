@@ -12,6 +12,8 @@ export type UnrespondedConfig = {
   enabled?: boolean;
   /** Timeout duration string (e.g., '5m', '10m', '1h'). Default: 10m */
   timeout?: string;
+  /** Cooldown duration string (e.g., '1m', '5m'). Default: 5m */
+  cooldown?: string;
 };
 
 export type UnrespondedCheckResult = {
@@ -24,6 +26,7 @@ export type UnrespondedCheckResult = {
 };
 
 const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+const DEFAULT_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
 
 /**
  * Check if session has unresponded messages.
@@ -56,6 +59,15 @@ export function checkUnrespondedMessages(
 
   const elapsedMs = Date.now() - lastInbound;
   if (elapsedMs < timeoutMs) {
+    return null;
+  }
+
+  // Cooldown check to prevent repeated wake-ups
+  const cooldownMs = config.cooldown
+    ? parseDurationMs(config.cooldown, { defaultUnit: "m" })
+    : DEFAULT_COOLDOWN_MS;
+  const lastWake = session.lastUnrespondedWakeAt ?? 0;
+  if (Date.now() - lastWake < cooldownMs) {
     return null;
   }
 

@@ -79,6 +79,8 @@ export type SessionEntry = {
   lastOutboundAt?: number;
   /** Preview of the last inbound message (for agent context) */
   lastInboundPreview?: string;
+  /** Last time unresponded wake was triggered (for cooldown) */
+  lastUnrespondedWakeAt?: number;
   sessionId: string;
   updatedAt: number;
   sessionFile?: string;
