@@ -236,6 +236,53 @@ describe("legacy migrate heartbeat config", () => {
   });
 });
 
+describe("legacy migrate thinking default alias", () => {
+  it("moves agents.defaults.thinking into agents.defaults.thinkingDefault", () => {
+    const res = migrateLegacyConfig({
+      agents: {
+        defaults: {
+          thinking: "high",
+        },
+      },
+    });
+
+    expect(res.changes).toContain(
+      "Moved agents.defaults.thinking → agents.defaults.thinkingDefault (high).",
+    );
+    expect(res.config?.agents?.defaults?.thinkingDefault).toBe("high");
+    expect(
+      (
+        res.config?.agents?.defaults as
+          | { thinking?: unknown; thinkingDefault?: unknown }
+          | undefined
+      )?.thinking,
+    ).toBeUndefined();
+  });
+
+  it("keeps explicit agents.defaults.thinkingDefault over legacy thinking alias", () => {
+    const res = migrateLegacyConfig({
+      agents: {
+        defaults: {
+          thinking: "high",
+          thinkingDefault: "low",
+        },
+      },
+    });
+
+    expect(res.changes).toContain(
+      "Removed agents.defaults.thinking (agents.defaults.thinkingDefault already set).",
+    );
+    expect(res.config?.agents?.defaults?.thinkingDefault).toBe("low");
+    expect(
+      (
+        res.config?.agents?.defaults as
+          | { thinking?: unknown; thinkingDefault?: unknown }
+          | undefined
+      )?.thinking,
+    ).toBeUndefined();
+  });
+});
+
 describe("legacy migrate controlUi.allowedOrigins seed (issue #29385)", () => {
   it("seeds allowedOrigins for bind=lan with no existing controlUi config", () => {
     const res = migrateLegacyConfig({

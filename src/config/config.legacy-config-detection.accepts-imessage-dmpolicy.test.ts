@@ -210,6 +210,26 @@ describe("legacy config detection", () => {
       expect(res.issues.some((i) => i.path === "agent.model")).toBe(true);
     }
   });
+  it("flags agents.defaults.thinking as a legacy compatibility key in config snapshots", async () => {
+    await withSnapshotForConfig(
+      {
+        agents: {
+          defaults: {
+            thinking: "high",
+          },
+        },
+      },
+      async ({ snapshot, parsed }) => {
+        expect(snapshot.valid).toBe(false);
+        expect(
+          snapshot.legacyIssues.some((issue) => issue.path === "agents.defaults.thinking"),
+        ).toBe(true);
+        expect(
+          (parsed as { agents?: { defaults?: { thinking?: string } } }).agents?.defaults?.thinking,
+        ).toBe("high");
+      },
+    );
+  });
   it("migrates telegram.requireMention to channels.telegram.groups.*.requireMention", async () => {
     const res = migrateLegacyConfig({
       telegram: { requireMention: false },
@@ -229,6 +249,26 @@ describe("legacy config detection", () => {
     expect(res.changes).toContain("Moved messages.tts.enabled → messages.tts.auto (always).");
     expect(res.config?.messages?.tts?.auto).toBe("always");
     expect(res.config?.messages?.tts?.enabled).toBeUndefined();
+  });
+  it("detects agents.defaults.thinking as a legacy alias before validation", async () => {
+    await withSnapshotForConfig(
+      {
+        agents: {
+          defaults: {
+            thinking: "high",
+          },
+        },
+      },
+      async ({ snapshot, parsed }) => {
+        expect(snapshot.valid).toBe(false);
+        expect(
+          snapshot.legacyIssues.some((issue) => issue.path === "agents.defaults.thinking"),
+        ).toBe(true);
+        expect(
+          (parsed as { agents?: { defaults?: { thinking?: unknown } } }).agents?.defaults?.thinking,
+        ).toBe("high");
+      },
+    );
   });
   it("migrates legacy model config to agent.models + model lists", async () => {
     const res = migrateLegacyConfig({

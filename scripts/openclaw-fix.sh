@@ -7,30 +7,67 @@
 set -euo pipefail
 
 # ============ 配置 ============
-LOCK_FILE="/tmp/openclaw-fix.lock"
 MAX_RETRIES="${OPENCLAW_FIX_MAX_RETRIES:-2}"
 CLAUDE_TIMEOUT="${OPENCLAW_CLAUDE_TIMEOUT:-300}"
 GATEWAY_PORT="${OPENCLAW_GATEWAY_PORT:-18789}"
 GATEWAY_LABEL="ai.openclaw.gateway"
-LOG_FILE="/tmp/openclaw-fix.log"
-GATEWAY_ERR_LOG="$HOME/.openclaw/logs/gateway.err.log"
-GATEWAY_LOG="$HOME/.openclaw/logs/gateway.log"
-
-# ============ mkdir 锁 (防止并发执行, macOS 兼容) ============
-# 使用 mkdir 原子操作替代 flock (macOS 不含 flock)
-LOCK_DIR="/tmp/openclaw-fix.lock"
-if ! mkdir "$LOCK_DIR" 2>/dev/null; then
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Another fix is running, skipping..." >> "$LOG_FILE"
-    exit 0
-fi
-# 确保退出时清理锁
-trap 'rmdir "$LOCK_DIR" 2>/dev/null' EXIT
+GATEWAY_PLIST="${OPENCLAW_GATEWAY_PLIST:-$HOME/Library/LaunchAgents/${GATEWAY_LABEL}.plist}"
+LOCK_DIR="${OPENCLAW_FIX_LOCK_DIR:-/tmp/openclaw-fix.lock}"
+LOCK_STALE_SECONDS="${OPENCLAW_FIX_LOCK_STALE_SECONDS:-900}"
+LOG_FILE="${OPENCLAW_FIX_LOG_FILE:-/tmp/openclaw-fix.log}"
+GATEWAY_ERR_LOG="${OPENCLAW_FIX_GATEWAY_ERR_LOG:-$HOME/.openclaw/logs/gateway.err.log}"
+GATEWAY_LOG="${OPENCLAW_FIX_GATEWAY_LOG:-$HOME/.openclaw/logs/gateway.log}"
 
 # ============ 日志函数 ============
 log() {
     local msg="[$(date '+%Y-%m-%d %H:%M:%S')] $*"
     echo "$msg" | tee -a "$LOG_FILE"
 }
+
+# ============ mkdir 锁 (防止并发执行, macOS 兼容) ============
+# 使用 mkdir 原子操作替代 flock (macOS 不含 flock)
+acquire_lock() {
+    if mkdir "$LOCK_DIR" 2>/dev/null; then
+        return 0
+    fi
+
+    local existing_age=""
+    existing_age=$(find "$LOCK_DIR" -maxdepth 0 -mtime +"$((LOCK_STALE_SECONDS / 86400))" 2>/dev/null || true)
+    if [[ -n "$existing_age" ]]; then
+        log "Stale lock detected, clearing: $LOCK_DIR"
+        rmdir "$LOCK_DIR" 2>/dev/null || true
+        mkdir "$LOCK_DIR" 2>/dev/null && return 0
+    fi
+
+    if command -v python3 >/dev/null 2>&1; then
+        local is_stale
+        is_stale=$(python3 - "$LOCK_DIR" "$LOCK_STALE_SECONDS" <<'PY'
+import os
+import sys
+lock_dir = sys.argv[1]
+ttl = int(sys.argv[2])
+try:
+    age = int(__import__("time").time() - os.stat(lock_dir).st_mtime)
+except FileNotFoundError:
+    print("missing")
+    raise SystemExit(0)
+print("stale" if age >= ttl else "fresh")
+PY
+)
+        if [[ "$is_stale" == "stale" ]]; then
+            log "Stale lock detected, clearing: $LOCK_DIR"
+            rmdir "$LOCK_DIR" 2>/dev/null || true
+            mkdir "$LOCK_DIR" 2>/dev/null && return 0
+        fi
+    fi
+
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Another fix is running, skipping..." >> "$LOG_FILE"
+    exit 0
+}
+
+acquire_lock
+# 确保退出时清理锁
+trap 'rmdir "$LOCK_DIR" 2>/dev/null' EXIT
 
 # ============ 收集错误信息 ============
 collect_errors() {
@@ -71,22 +108,25 @@ collect_errors() {
 restart_gateway() {
     log "Restarting Gateway..."
 
-    # 先尝试优雅停止
-    launchctl bootout gui/$UID/$GATEWAY_LABEL 2>/dev/null || true
-    sleep 2
+    if ! launchctl print "gui/$UID/$GATEWAY_LABEL" >/dev/null 2>&1; then
+        if [[ ! -f "$GATEWAY_PLIST" ]]; then
+            log "Gateway LaunchAgent not found: $GATEWAY_PLIST"
+            return 1
+        fi
+        launchctl bootstrap "gui/$UID" "$GATEWAY_PLIST" >/dev/null 2>&1 || true
+        if ! launchctl print "gui/$UID/$GATEWAY_LABEL" >/dev/null 2>&1; then
+            log "Gateway LaunchAgent failed to load: $GATEWAY_PLIST"
+            return 1
+        fi
+    fi
 
-    # 强制杀死残留进程
-    pkill -9 -f "openclaw.*gateway" 2>/dev/null || true
-    sleep 1
-
-    # 启动 Gateway
-    launchctl kickstart -k gui/$UID/$GATEWAY_LABEL 2>/dev/null || true
+    launchctl kickstart -k "gui/$UID/$GATEWAY_LABEL" >/dev/null 2>&1 || true
     sleep 3
 }
 
 # ============ 健康检查 ============
 check_health() {
-    curl -sf --max-time 5 "http://127.0.0.1:${GATEWAY_PORT}/health" > /dev/null 2>&1
+    curl -sf --noproxy "*" --max-time 5 "http://127.0.0.1:${GATEWAY_PORT}/health" > /dev/null 2>&1
 }
 
 # ============ 通知结果 ============

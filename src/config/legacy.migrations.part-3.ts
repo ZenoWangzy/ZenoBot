@@ -98,6 +98,30 @@ function mergeLegacyIntoDefaults(params: {
 
 export const LEGACY_CONFIG_MIGRATIONS_PART_3: LegacyConfigMigration[] = [
   {
+    id: "agents.defaults.thinking->thinkingDefault",
+    describe: "Move agents.defaults.thinking to agents.defaults.thinkingDefault",
+    apply: (raw, changes) => {
+      const agents = getRecord(raw.agents);
+      const defaults = getRecord(agents?.defaults);
+      if (!defaults || !Object.prototype.hasOwnProperty.call(defaults, "thinking")) {
+        return;
+      }
+
+      if (!Object.prototype.hasOwnProperty.call(defaults, "thinkingDefault")) {
+        defaults.thinkingDefault = defaults.thinking;
+        changes.push(
+          `Moved agents.defaults.thinking → agents.defaults.thinkingDefault (${String(defaults.thinkingDefault)}).`,
+        );
+      } else {
+        changes.push(
+          "Removed agents.defaults.thinking (agents.defaults.thinkingDefault already set).",
+        );
+      }
+
+      delete defaults.thinking;
+    },
+  },
+  {
     // v2026.2.26 added a startup guard requiring gateway.controlUi.allowedOrigins (or the
     // host-header fallback flag) for any non-loopback bind. The onboarding wizard was updated
     // to seed this for new installs, but existing bind=lan/bind=custom installs that upgrade
@@ -161,6 +185,30 @@ export const LEGACY_CONFIG_MIGRATIONS_PART_3: LegacyConfigMigration[] = [
           "Merged memorySearch → agents.defaults.memorySearch (filled missing fields from legacy; kept explicit agents.defaults values).",
       });
       delete raw.memorySearch;
+    },
+  },
+  {
+    id: "agents.defaults.thinking->thinkingDefault",
+    describe: "Rename agents.defaults.thinking to agents.defaults.thinkingDefault",
+    apply: (raw, changes) => {
+      const agents = getRecord(raw.agents);
+      const defaults = getRecord(agents?.defaults);
+      if (!defaults || defaults.thinking === undefined) {
+        return;
+      }
+
+      if (defaults.thinkingDefault === undefined) {
+        defaults.thinkingDefault = defaults.thinking;
+        changes.push(
+          `Moved agents.defaults.thinking → agents.defaults.thinkingDefault (${String(defaults.thinkingDefault)}).`,
+        );
+      } else {
+        changes.push(
+          "Removed agents.defaults.thinking (agents.defaults.thinkingDefault already set).",
+        );
+      }
+
+      delete defaults.thinking;
     },
   },
   {

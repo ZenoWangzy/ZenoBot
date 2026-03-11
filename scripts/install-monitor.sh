@@ -10,6 +10,16 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 PLIST_NAME="ai.openclaw.monitor.plist"
 PLIST_DEST="$HOME/Library/LaunchAgents/$PLIST_NAME"
 LAUNCHCTL_LABEL="ai.openclaw.monitor"
+SCRIPT_INSTALL_DIR="$HOME/.openclaw/scripts"
+HEALTH_SCRIPT_NAME="openclaw-health-check.sh"
+FIX_SCRIPT_NAME="openclaw-fix.sh"
+
+install_runtime_scripts() {
+    mkdir -p "$SCRIPT_INSTALL_DIR"
+    cp "$SCRIPT_DIR/$HEALTH_SCRIPT_NAME" "$SCRIPT_INSTALL_DIR/$HEALTH_SCRIPT_NAME"
+    cp "$SCRIPT_DIR/$FIX_SCRIPT_NAME" "$SCRIPT_INSTALL_DIR/$FIX_SCRIPT_NAME"
+    chmod 755 "$SCRIPT_INSTALL_DIR/$HEALTH_SCRIPT_NAME" "$SCRIPT_INSTALL_DIR/$FIX_SCRIPT_NAME"
+}
 
 usage() {
     cat <<EOF
@@ -45,8 +55,10 @@ install() {
     # 停止旧服务（如果存在）
     launchctl bootout gui/$UID/$LAUNCHCTL_LABEL 2>/dev/null || true
 
+    install_runtime_scripts
+
     # 创建 plist 文件
-    local health_script="$SCRIPT_DIR/openclaw-health-check.sh"
+    local health_script="$SCRIPT_INSTALL_DIR/$HEALTH_SCRIPT_NAME"
     local gateway_port="${OPENCLAW_GATEWAY_PORT:-18789}"
     local max_retries="${OPENCLAW_FIX_MAX_RETRIES:-2}"
     local claude_timeout="${OPENCLAW_CLAUDE_TIMEOUT:-300}"
@@ -134,16 +146,16 @@ status() {
 
     # 检查脚本
     echo "Scripts:"
-    if [[ -x "$SCRIPT_DIR/openclaw-health-check.sh" ]]; then
-        echo "  ✅ openclaw-health-check.sh"
+    if [[ -x "$SCRIPT_INSTALL_DIR/$HEALTH_SCRIPT_NAME" ]]; then
+        echo "  ✅ $SCRIPT_INSTALL_DIR/$HEALTH_SCRIPT_NAME"
     else
-        echo "  ❌ openclaw-health-check.sh (not found or not executable)"
+        echo "  ❌ $SCRIPT_INSTALL_DIR/$HEALTH_SCRIPT_NAME (not found or not executable)"
     fi
 
-    if [[ -x "$SCRIPT_DIR/openclaw-fix.sh" ]]; then
-        echo "  ✅ openclaw-fix.sh"
+    if [[ -x "$SCRIPT_INSTALL_DIR/$FIX_SCRIPT_NAME" ]]; then
+        echo "  ✅ $SCRIPT_INSTALL_DIR/$FIX_SCRIPT_NAME"
     else
-        echo "  ❌ openclaw-fix.sh (not found or not executable)"
+        echo "  ❌ $SCRIPT_INSTALL_DIR/$FIX_SCRIPT_NAME (not found or not executable)"
     fi
     echo ""
 

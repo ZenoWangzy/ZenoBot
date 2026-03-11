@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import type { OpenClawConfig } from "../config/config.js";
 import { normalizeCompatibilityConfigValues } from "./doctor-legacy-config.js";
 
 describe("normalizeCompatibilityConfigValues", () => {
@@ -187,6 +188,24 @@ describe("normalizeCompatibilityConfigValues", () => {
     expect(res.changes).toEqual([
       "Moved channels.discord.streamMode → channels.discord.streaming (block).",
       "Normalized channels.discord.streaming boolean → enum (block).",
+    ]);
+  });
+
+  it("migrates agents.defaults.thinking to thinkingDefault", () => {
+    const res = normalizeCompatibilityConfigValues({
+      agents: {
+        defaults: {
+          thinking: "high",
+        },
+      },
+    } as unknown as OpenClawConfig);
+
+    expect(res.config.agents?.defaults?.thinkingDefault).toBe("high");
+    expect((res.config.agents?.defaults as Record<string, unknown> | undefined)?.thinking).toBe(
+      undefined,
+    );
+    expect(res.changes).toEqual([
+      "Moved agents.defaults.thinking → agents.defaults.thinkingDefault (high).",
     ]);
   });
 
