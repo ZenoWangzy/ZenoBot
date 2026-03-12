@@ -266,6 +266,8 @@ export type AgentDefaultsConfig = {
       enabled?: boolean;
       /** Timeout before triggering (duration string, default: 10m) */
       timeout?: string;
+      /** Cooldown to prevent repeated wake-ups (duration string, default: 5m) */
+      cooldown?: string;
     };
   };
   /** Max concurrent agent runs across all conversations. Default: 1 (sequential). */
