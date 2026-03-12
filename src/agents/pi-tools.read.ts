@@ -312,9 +312,18 @@ async function normalizeReadImageResult(
     throw new Error(`read: image payload is empty (${filePath})`);
   }
 
+  // Ensure details.path is set so downstream media extraction
+  // (extractToolResultMediaPaths) can route the image to outbound channels.
+  // The upstream Pi SDK read tool returns base64 image data but never sets
+  // details.path, causing images to silently drop from Discord/Telegram replies.
+  const resolvedPath = filePath !== "<unknown>" ? filePath : undefined;
+  const existingDetails = (result.details ?? {}) as Record<string, unknown>;
+  const needsPath = resolvedPath && typeof existingDetails.path !== "string";
+  const patchedDetails = needsPath ? { ...existingDetails, path: resolvedPath } : existingDetails;
+
   const sniffed = await sniffMimeFromBase64(image.data);
   if (!sniffed) {
-    return result;
+    return needsPath ? { ...result, details: patchedDetails } : result;
   }
 
   if (!sniffed.startsWith("image/")) {
@@ -324,7 +333,7 @@ async function normalizeReadImageResult(
   }
 
   if (sniffed === image.mimeType) {
-    return result;
+    return needsPath ? { ...result, details: patchedDetails } : result;
   }
 
   const nextContent = content.map((block) => {
@@ -347,7 +356,7 @@ async function normalizeReadImageResult(
     return block;
   });
 
-  return { ...result, content: nextContent };
+  return { ...result, content: nextContent, details: patchedDetails };
 }
 
 export function wrapToolWorkspaceRootGuard(tool: AnyAgentTool, root: string): AnyAgentTool {
