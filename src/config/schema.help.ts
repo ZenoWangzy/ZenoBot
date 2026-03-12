@@ -230,6 +230,14 @@ export const FIELD_HELP: Record<string, string> = {
     "Suppress tool error warning payloads during heartbeat runs.",
   "agents.list[].heartbeat.suppressToolErrorWarnings":
     "Suppress tool error warning payloads during heartbeat runs.",
+  "agents.defaults.heartbeat.unresponded.enabled":
+    "Enable detection of unresponded messages. When enabled, the system will check if user messages have not received a response within the timeout period.",
+  "agents.defaults.heartbeat.unresponded.timeout":
+    "Timeout duration before triggering unresponded detection. Duration string (e.g., '5m', '10m', '1h'). Default: 10m",
+  "agents.list.*.heartbeat.unresponded.enabled":
+    "Enable detection of unresponded messages. When enabled, the system will check if user messages have not received a response within the timeout period.",
+  "agents.list.*.heartbeat.unresponded.timeout":
+    "Timeout duration before triggering unresponded detection. Duration string (e.g., '5m', '10m', '1h'). Default: 10m",
   browser:
     "Browser runtime controls for local or remote CDP attachment, profile routing, and screenshot/snapshot behavior. Keep defaults unless your automation workflow requires custom browser transport settings.",
   "browser.enabled":

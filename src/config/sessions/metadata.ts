@@ -150,6 +150,19 @@ export function deriveGroupSessionPatch(params: {
   return patch;
 }
 
+const PREVIEW_MAX_LENGTH = 100;
+
+function truncatePreview(text: string | undefined): string | undefined {
+  if (!text) {
+    return undefined;
+  }
+  const trimmed = text.trim();
+  if (trimmed.length <= PREVIEW_MAX_LENGTH) {
+    return trimmed;
+  }
+  return trimmed.slice(0, PREVIEW_MAX_LENGTH) + "...";
+}
+
 export function deriveSessionMetaPatch(params: {
   ctx: MsgContext;
   sessionKey: string;
@@ -159,7 +172,9 @@ export function deriveSessionMetaPatch(params: {
   const groupPatch = deriveGroupSessionPatch(params);
   const origin = deriveSessionOrigin(params.ctx);
   if (!groupPatch && !origin) {
-    return null;
+    // Still need to track inbound timestamp even without origin/group changes
+    const inboundPatch = deriveInboundTimestampPatch(params.ctx);
+    return inboundPatch;
   }
 
   const patch: Partial<SessionEntry> = groupPatch ? { ...groupPatch } : {};
@@ -168,5 +183,22 @@ export function deriveSessionMetaPatch(params: {
     patch.origin = mergedOrigin;
   }
 
+  // Add inbound timestamp tracking
+  const inboundPatch = deriveInboundTimestampPatch(params.ctx);
+  if (inboundPatch) {
+    Object.assign(patch, inboundPatch);
+  }
+
   return Object.keys(patch).length > 0 ? patch : null;
+}
+
+function deriveInboundTimestampPatch(ctx: MsgContext): Partial<SessionEntry> | null {
+  const body = ctx.BodyForAgent ?? ctx.Body;
+  if (!body) {
+    return null;
+  }
+  return {
+    lastInboundAt: Date.now(),
+    lastInboundPreview: truncatePreview(body),
+  };
 }
