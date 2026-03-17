@@ -1,0 +1,29 @@
+{
+  "task_name": "cc-eval-dispatch-fix",
+  "prompt": "评估并修复 claude-code-dispatch 的多轮对话问题。\n\n## 当前架构\n- dispatch-claude.sh：派发任务，创建JSON队列文件\n- worker-claude-queue.sh：轮询队列，执行任务\n- claude_code_run.py：调用Claude CLI\n- 支持参数：--session-id, --round, --user-feedback\n\n## 当前问题\n**Round 1成功，Round 2失败：**\n错误：claude_code_run.py: error: unrecognized arguments: e8a49e7a-ed56-4d62-95e8-9b9ffc56f624\n\n**根本原因：**\nclaude_code_run.py中 --resume 定义为 action='store_true'（布尔标志）\n但Claude CLI要求：--resume <session-id>\n\n## Claude CLI正确语法（已验证）\n- Round 1：claude -p '...' --session-id <uuid>\n- Round 2+：claude -p '...' --resume <session-id>\n\n## 需要评估\n1. 如何修改 claude_code_run.py 支持 --resume <session-id>\n2. worker-claude-queue.sh 的调用逻辑是否需要调整\n3. 是否需要区分 Round 1 和 Round 2+ 的参数传递\n4. 错误重试逻辑是否完善\n\n## 交付物\n/Users/ZenoWang/.openclaw/workspace/cc-dispatch-fix-plan.md 包含：\n1. 问题根因分析\n2. 详细修改方案（具体到代码行）\n3. 修改后的测试步骤\n4. 风险评估\n\n修改必须保持向后兼容，不影响现有单轮任务。",
+  "workdir": "/Users/ZenoWang/.openclaw/workspace",
+  "enqueued_at": "2026-02-22T16:25:40+08:00",
+  "callback": {
+    "channel": "discord",
+    "target": "853303202236858379",
+    "account": ""
+  },
+  "permission_mode": "bypassPermissions",
+  "allowed_tools": "",
+  "agent_teams": 0,
+  "teammate_mode": "auto",
+  "model": "",
+  "claude_bin": "/Users/ZenoWang/.local/bin/claude",
+  "timeout_min": 20,
+  "stall_min": 8,
+  "required_outputs": ["cc-dispatch-fix-plan.md"],
+  "session_id": "4a3eca14-fefe-4d14-a02f-90900fee0251",
+  "round": 1,
+  "status": "done",
+  "started_at": "2026-02-22T16:25:41+08:00",
+  "worker_id": "w1",
+  "run_id": "1771748740-cc-eval-dispatch-fix",
+  "finished_at": "2026-02-22T16:31:20+08:00",
+  "exit_code": 0,
+  "event": "Stop"
+}

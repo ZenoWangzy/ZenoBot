@@ -1,0 +1,27 @@
+{
+  "task_name": "cc-par-a",
+  "prompt": "Write cc-par-a.txt with PAR_A and then reply DONE",
+  "workdir": "/Users/ZenoWang/.openclaw/workspace",
+  "enqueued_at": "2026-02-20T21:27:18+08:00",
+  "callback": {
+    "channel": "discord",
+    "target": "853303202236858379",
+    "account": ""
+  },
+  "permission_mode": "bypassPermissions",
+  "allowed_tools": "",
+  "agent_teams": 0,
+  "teammate_mode": "auto",
+  "model": "",
+  "claude_bin": "/Users/ZenoWang/.local/bin/claude",
+  "timeout_min": 3,
+  "stall_min": 8,
+  "required_outputs": ["cc-par-a.txt"],
+  "status": "done",
+  "started_at": "2026-02-20T21:27:19+08:00",
+  "worker_id": "w2",
+  "run_id": "1771594038-cc-par-a",
+  "finished_at": "2026-02-20T21:28:27+08:00",
+  "exit_code": 0,
+  "event": "ForcedStopAfterDeliverable"
+}

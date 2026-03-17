@@ -234,6 +234,14 @@ export const FIELD_HELP: Record<string, string> = {
     "Suppress tool error warning payloads during heartbeat runs.",
   "agents.list[].heartbeat.suppressToolErrorWarnings":
     "Suppress tool error warning payloads during heartbeat runs.",
+  "agents.defaults.heartbeat.unresponded.enabled":
+    "Enable detection of unresponded messages. When enabled, the system will check if user messages have not received a response within the timeout period.",
+  "agents.defaults.heartbeat.unresponded.timeout":
+    "Timeout duration before triggering unresponded detection. Duration string (e.g., '5m', '10m', '1h'). Default: 10m",
+  "agents.list.*.heartbeat.unresponded.enabled":
+    "Enable detection of unresponded messages. When enabled, the system will check if user messages have not received a response within the timeout period.",
+  "agents.list.*.heartbeat.unresponded.timeout":
+    "Timeout duration before triggering unresponded detection. Duration string (e.g., '5m', '10m', '1h'). Default: 10m",
   browser:
     "Browser runtime controls for local or remote CDP attachment, profile routing, and screenshot/snapshot behavior. Keep defaults unless your automation workflow requires custom browser transport settings.",
   "browser.enabled":
@@ -669,7 +677,7 @@ export const FIELD_HELP: Record<string, string> = {
   "tools.web.search.provider":
     'Search provider ("brave", "firecrawl", "gemini", "grok", "kimi", or "perplexity"). Auto-detected from available API keys if omitted.',
   "tools.web.search.apiKey": "Brave Search API key (fallback: BRAVE_API_KEY env var).",
-  "tools.web.search.maxResults": "Number of results to return (1-10).",
+  "tools.web.search.maxResults": "Default number of results to return (1-10).",
   "tools.web.search.timeoutSeconds": "Timeout in seconds for web_search requests.",
   "tools.web.search.cacheTtlMinutes": "Cache TTL in minutes for web_search results.",
   "tools.web.search.brave.mode":

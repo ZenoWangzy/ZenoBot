@@ -7,8 +7,10 @@ import {
   makeWASocket,
   useMultiFileAuthState,
 } from "@whiskeysockets/baileys";
+import { HttpsProxyAgent } from "https-proxy-agent";
 import { formatCliCommand } from "openclaw/plugin-sdk/cli-runtime";
 import { VERSION } from "openclaw/plugin-sdk/cli-runtime";
+import { resolveEnvHttpProxyUrl } from "openclaw/plugin-sdk/infra-runtime";
 import { danger, success } from "openclaw/plugin-sdk/runtime-env";
 import { getChildLogger, toPinoLikeLogger } from "openclaw/plugin-sdk/runtime-env";
 import { ensureDir, resolveUserPath } from "openclaw/plugin-sdk/text-runtime";
@@ -112,6 +114,8 @@ export async function createWaSocket(
   maybeRestoreCredsFromBackup(authDir);
   const { state, saveCreds } = await useMultiFileAuthState(authDir);
   const { version } = await fetchLatestBaileysVersion();
+  const proxyUrl = resolveEnvHttpProxyUrl("https");
+  const agent = proxyUrl ? new HttpsProxyAgent(proxyUrl) : undefined;
   const sock = makeWASocket({
     auth: {
       creds: state.creds,
@@ -123,6 +127,7 @@ export async function createWaSocket(
     browser: ["openclaw", "cli", VERSION],
     syncFullHistory: false,
     markOnlineOnConnect: false,
+    agent,
   });
 
   sock.ev.on("creds.update", () => enqueueSaveCreds(authDir, saveCreds, sessionLogger));

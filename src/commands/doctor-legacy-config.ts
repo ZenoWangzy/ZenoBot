@@ -291,6 +291,40 @@ export function normalizeCompatibilityConfigValues(cfg: OpenClawConfig): {
     }
   };
 
+  const normalizeAgentThinkingAlias = () => {
+    if (!isRecord(next.agents) || !isRecord(next.agents.defaults)) {
+      return;
+    }
+
+    const defaults = next.agents.defaults as Record<string, unknown>;
+    const legacyThinking = defaults.thinking;
+    const thinkingDefault = defaults.thinkingDefault;
+    if (legacyThinking === undefined) {
+      return;
+    }
+
+    const updated = { ...defaults };
+    if (thinkingDefault === undefined) {
+      updated.thinkingDefault = legacyThinking;
+      const displayValue =
+        typeof legacyThinking === "string" ? legacyThinking : JSON.stringify(legacyThinking);
+      changes.push(
+        `Moved agents.defaults.thinking → agents.defaults.thinkingDefault (${displayValue}).`,
+      );
+    } else if (thinkingDefault === legacyThinking) {
+      changes.push("Removed agents.defaults.thinking (thinkingDefault already set).");
+    }
+    delete updated.thinking;
+
+    next = {
+      ...next,
+      agents: {
+        ...(next.agents as Record<string, unknown>),
+        defaults: updated,
+      },
+    };
+  };
+
   const normalizeLegacyBrowserProfiles = () => {
     const rawBrowser = next.browser;
     if (!isRecord(rawBrowser)) {
@@ -425,6 +459,7 @@ export function normalizeCompatibilityConfigValues(cfg: OpenClawConfig): {
   normalizeProvider("telegram");
   normalizeProvider("slack");
   normalizeProvider("discord");
+  normalizeAgentThinkingAlias();
   seedMissingDefaultAccountsFromSingleAccountBase();
   normalizeLegacyBrowserProfiles();
 

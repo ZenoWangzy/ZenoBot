@@ -1,0 +1,27 @@
+{
+  "task_name": "cc-clean-e2e",
+  "prompt": "Write cc-clean-e2e.txt with CLEAN_OK and then reply DONE",
+  "workdir": "/Users/ZenoWang/.openclaw/workspace",
+  "enqueued_at": "2026-02-21T02:59:16+08:00",
+  "callback": {
+    "channel": "discord",
+    "target": "853303202236858379",
+    "account": ""
+  },
+  "permission_mode": "bypassPermissions",
+  "allowed_tools": "",
+  "agent_teams": 0,
+  "teammate_mode": "auto",
+  "model": "",
+  "claude_bin": "/Users/ZenoWang/.local/bin/claude",
+  "timeout_min": 30,
+  "stall_min": 8,
+  "required_outputs": ["cc-clean-e2e.txt"],
+  "status": "done",
+  "started_at": "2026-02-21T02:59:18+08:00",
+  "worker_id": "w1",
+  "run_id": "1771613956-cc-clean-e2e",
+  "finished_at": "2026-02-21T03:00:28+08:00",
+  "exit_code": 0,
+  "event": "ForcedStopAfterDeliverable"
+}

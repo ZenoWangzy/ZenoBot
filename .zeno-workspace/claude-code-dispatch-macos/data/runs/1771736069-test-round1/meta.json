@@ -1,0 +1,29 @@
+{
+  "task_name": "test-round1",
+  "prompt": "在calculator.py中添加一个greeting函数，输出Hello World",
+  "workdir": "/Users/ZenoWang/.openclaw/workspace",
+  "enqueued_at": "2026-02-22T12:54:29+08:00",
+  "callback": {
+    "channel": "discord",
+    "target": "853303202236858379",
+    "account": ""
+  },
+  "permission_mode": "bypassPermissions",
+  "allowed_tools": "",
+  "agent_teams": 0,
+  "teammate_mode": "auto",
+  "model": "",
+  "claude_bin": "/Users/ZenoWang/.local/bin/claude",
+  "timeout_min": 30,
+  "stall_min": 8,
+  "required_outputs": [],
+  "session_id": "e8a49e7a-ed56-4d62-95e8-9b9ffc56f624",
+  "round": 1,
+  "status": "done",
+  "started_at": "2026-02-22T12:54:31+08:00",
+  "worker_id": "w1",
+  "run_id": "1771736069-test-round1",
+  "finished_at": "2026-02-22T12:57:27+08:00",
+  "exit_code": 0,
+  "event": "Stop"
+}

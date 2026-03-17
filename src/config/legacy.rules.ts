@@ -155,6 +155,11 @@ export const LEGACY_CONFIG_RULES: LegacyConfigRule[] = [
       "top-level memorySearch was moved; use agents.defaults.memorySearch instead (auto-migrated on load).",
   },
   {
+    path: ["agents", "defaults", "thinking"],
+    message:
+      "agents.defaults.thinking was renamed to agents.defaults.thinkingDefault (auto-migrated on load).",
+  },
+  {
     path: ["tools", "bash"],
     message: "tools.bash was removed; use tools.exec instead (auto-migrated on load).",
   },
@@ -208,5 +213,10 @@ export const LEGACY_CONFIG_RULES: LegacyConfigRule[] = [
     path: ["heartbeat"],
     message:
       "top-level heartbeat is not a valid config path; use agents.defaults.heartbeat (cadence/target/model settings) or channels.defaults.heartbeat (showOk/showAlerts/useIndicator).",
+  },
+  {
+    path: ["agents", "defaults", "thinking"],
+    message:
+      "agents.defaults.thinking was renamed to agents.defaults.thinkingDefault (auto-migrated on load).",
   },
 ];

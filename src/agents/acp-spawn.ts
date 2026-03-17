@@ -95,6 +95,8 @@ export const ACP_SPAWN_ACCEPTED_NOTE =
   "initial ACP task queued in isolated session; follow-ups continue in the bound thread.";
 export const ACP_SPAWN_SESSION_ACCEPTED_NOTE =
   "thread-bound ACP session stays active after this task; continue in-thread for follow-ups.";
+export const ACP_SPAWN_RUN_NO_RELAY_NOTE =
+  'one-shot ACP runs do not automatically relay output back to the requester; use `streamTo: "parent"` when you need parent-session updates.';
 
 export function resolveAcpSpawnRuntimePolicyError(params: {
   cfg: OpenClawConfig;
@@ -231,14 +233,31 @@ function resolveTargetAcpAgentId(params: {
   requestedAgentId?: string;
   cfg: OpenClawConfig;
 }): { ok: true; agentId: string } | { ok: false; error: string } {
+  const backendId = normalizeOptionalAgentId(params.cfg.acp?.backend);
+  const suggestedAgentId = normalizeOptionalAgentId(params.cfg.acp?.defaultAgent) ?? "codex";
+  const rejectBackendName = (
+    agentId: string,
+  ): { ok: true; agentId: string } | { ok: false; error: string } => {
+    if (!backendId || agentId !== backendId) {
+      return { ok: true, agentId };
+    }
+    return {
+      ok: false,
+      error:
+        `ACP target agent "${agentId}" is invalid for runtime="acp".` +
+        ` "${agentId}" is the ACP backend name, not an ACP agent id.` +
+        ` Use a configured agent id such as "${suggestedAgentId}".`,
+    };
+  };
+
   const requested = normalizeOptionalAgentId(params.requestedAgentId);
   if (requested) {
-    return { ok: true, agentId: requested };
+    return rejectBackendName(requested);
   }
 
   const configuredDefault = normalizeOptionalAgentId(params.cfg.acp?.defaultAgent);
   if (configuredDefault) {
-    return { ok: true, agentId: configuredDefault };
+    return rejectBackendName(configuredDefault);
   }
 
   return {
@@ -442,6 +461,7 @@ export async function spawnAcpDirect(
     requestedMode: params.mode,
     threadRequested: requestThreadBinding,
   });
+  const runWithoutRelay = spawnMode === "run" && !streamToParentRequested;
   if (spawnMode === "session" && !requestThreadBinding) {
     return {
       status: "error",
@@ -757,6 +777,11 @@ export async function spawnAcpDirect(
     childSessionKey: sessionKey,
     runId: childRunId,
     mode: spawnMode,
-    note: spawnMode === "session" ? ACP_SPAWN_SESSION_ACCEPTED_NOTE : ACP_SPAWN_ACCEPTED_NOTE,
+    note:
+      spawnMode === "session"
+        ? ACP_SPAWN_SESSION_ACCEPTED_NOTE
+        : runWithoutRelay
+          ? `${ACP_SPAWN_ACCEPTED_NOTE} ${ACP_SPAWN_RUN_NO_RELAY_NOTE}`
+          : ACP_SPAWN_ACCEPTED_NOTE,
   };
 }

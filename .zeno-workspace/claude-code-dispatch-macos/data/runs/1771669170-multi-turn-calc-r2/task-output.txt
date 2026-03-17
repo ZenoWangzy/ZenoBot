@@ -1,0 +1,2 @@
+^DError: --session-id can only be used with --continue or --resume if --fork-session is also specified.
+[?25h[worker:w1] non-retryable failure rc=1, skip --continue retry

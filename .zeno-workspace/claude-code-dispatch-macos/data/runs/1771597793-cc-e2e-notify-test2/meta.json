@@ -1,0 +1,27 @@
+{
+  "task_name": "cc-e2e-notify-test2",
+  "prompt": "Write cc-e2e-notify-test2.txt with E2E2_OK and then reply DONE",
+  "workdir": "/Users/ZenoWang/.openclaw/workspace",
+  "enqueued_at": "2026-02-20T22:29:53+08:00",
+  "callback": {
+    "channel": "discord",
+    "target": "853303202236858379",
+    "account": ""
+  },
+  "permission_mode": "bypassPermissions",
+  "allowed_tools": "",
+  "agent_teams": 0,
+  "teammate_mode": "auto",
+  "model": "",
+  "claude_bin": "/Users/ZenoWang/.local/bin/claude",
+  "timeout_min": 30,
+  "stall_min": 8,
+  "required_outputs": ["cc-e2e-notify-test2.txt"],
+  "status": "done",
+  "started_at": "2026-02-20T22:29:55+08:00",
+  "worker_id": "w1",
+  "run_id": "1771597793-cc-e2e-notify-test2",
+  "finished_at": "2026-02-20T22:31:03+08:00",
+  "exit_code": 0,
+  "event": "ForcedStopAfterDeliverable"
+}

@@ -77,6 +77,7 @@ import {
   resolveHeartbeatSenderContext,
 } from "./outbound/targets.js";
 import { peekSystemEventEntries } from "./system-events.js";
+import { checkUnrespondedMessages, type UnrespondedCheckResult } from "./unresponded-detection.js";
 
 export type HeartbeatDeps = OutboundSendDeps &
   ChannelHeartbeatDeps & {
@@ -486,6 +487,20 @@ function appendHeartbeatWorkspacePathHint(prompt: string, workspaceDir: string):
   return `${prompt}\n${hint}`;
 }
 
+function buildUnrespondedPrompt(result: UnrespondedCheckResult): string {
+  const elapsedMin = Math.round(result.elapsedMs / 60000);
+  return `⚠️ UNRESPONDED MESSAGE DETECTED
+
+You have an unresponded message from the user:
+- Received: ${elapsedMin} minutes ago
+- Preview: "${result.preview ?? "(no preview)"}"
+
+Check the session transcript and respond if needed.
+If the message doesn't require a response, reply with: NO_REPLY_NEEDED
+
+---`;
+}
+
 function resolveHeartbeatRunPrompt(params: {
   cfg: OpenClawConfig;
   heartbeat?: HeartbeatConfig;
@@ -506,11 +521,24 @@ function resolveHeartbeatRunPrompt(params: {
     .map((event) => event.text);
   const hasExecCompletion = pendingEvents.some(isExecCompletionEvent);
   const hasCronEvents = cronEvents.length > 0;
-  const basePrompt = hasExecCompletion
+
+  // Check for unresponded messages
+  const sessionEntry = params.preflight.session.entry;
+  const unrespondedConfig = params.heartbeat?.unresponded;
+  const unrespondedResult = checkUnrespondedMessages(unrespondedConfig ?? {}, sessionEntry ?? {});
+
+  let basePrompt = hasExecCompletion
     ? buildExecEventPrompt({ deliverToUser: params.canRelayToUser })
     : hasCronEvents
       ? buildCronEventPrompt(cronEvents, { deliverToUser: params.canRelayToUser })
       : resolveHeartbeatPrompt(params.cfg, params.heartbeat);
+
+  // Prepend unresponded prompt if detected
+  if (unrespondedResult) {
+    const unrespondedPrompt = buildUnrespondedPrompt(unrespondedResult);
+    basePrompt = `${unrespondedPrompt}\n\n${basePrompt}`;
+  }
+
   const prompt = appendHeartbeatWorkspacePathHint(basePrompt, params.workspaceDir);
 
   return { prompt, hasExecCompletion, hasCronEvents };

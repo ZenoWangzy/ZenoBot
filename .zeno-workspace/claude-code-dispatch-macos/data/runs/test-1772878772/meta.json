@@ -1,0 +1,15 @@
+{
+  "run_id": "test-1772878772",
+  "task_name": "test-integration",
+  "prompt": "test prompt",
+  "workdir": "/tmp",
+  "started_at": "2026-03-07T18:19:32+08:00",
+  "status": "running",
+  "exit_code": null,
+  "notify": {
+    "start_sent": true,
+    "last_progress_at": 0,
+    "completion_sent": false,
+    "failure_sent": false
+  }
+}

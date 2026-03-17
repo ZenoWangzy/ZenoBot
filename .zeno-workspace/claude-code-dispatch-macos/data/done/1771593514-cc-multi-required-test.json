@@ -1,0 +1,25 @@
+{
+  "task_name": "cc-multi-required-test",
+  "prompt": "Write cc-multi-a.txt with A_OK and cc-multi-b.txt with B_OK. Then reply DONE",
+  "workdir": "/Users/ZenoWang/.openclaw/workspace",
+  "enqueued_at": "2026-02-20T21:18:34+08:00",
+  "callback": {
+    "channel": "discord",
+    "target": "853303202236858379",
+    "account": ""
+  },
+  "permission_mode": "bypassPermissions",
+  "allowed_tools": "",
+  "agent_teams": 0,
+  "teammate_mode": "auto",
+  "model": "",
+  "claude_bin": "/Users/ZenoWang/.local/bin/claude",
+  "timeout_min": 3,
+  "stall_min": 8,
+  "required_outputs": ["cc-multi-a.txt", "cc-multi-b.txt"],
+  "status": "done",
+  "started_at": "2026-02-20T21:18:34+08:00",
+  "finished_at": "2026-02-20T21:20:09+08:00",
+  "exit_code": 0,
+  "event": "ForcedStopAfterDeliverable"
+}
