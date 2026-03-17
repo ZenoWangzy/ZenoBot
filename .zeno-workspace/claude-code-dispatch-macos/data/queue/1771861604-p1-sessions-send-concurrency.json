@@ -1,0 +1,23 @@
+{
+  "task_name": "p1-sessions-send-concurrency",
+  "prompt": "Mode: semi-auto\\n\\n# Prompt Template (English, Superpowers-first)\n\nUse this template for Claude Code dispatch.\n\n```text\nYou are operating with Superpowers workflow. Follow phases strictly:\n\nPhase 1 - brainstorming\n- Refine scope and constraints.\n- If mode=interactive: ask user questions before proceeding.\n- If mode=semi-auto: ask up to 3 critical questions; if unanswered, continue with assumptions.\n- If mode=auto: do not block; proceed with assumptions.\n\nPhase 2 - writing-plans\n- Produce a concrete implementation plan with checkpoints and verification steps.\n- Keep scope minimal and reversible.\n- If risky, stop for approval before Phase 3.\n\nPhase 3 - executing-plans\n- Execute plan in small batches.\n- Optionally use subagent-driven-development for parallelizable tasks.\n- Validate changes (tests/status/logs) before finishing.\n\nOutput requirements:\n- Prefix assumptions with ASSUMPTION:\n- Include rollback notes for any config/runtime change.\n- Write a concise report to /Users/ZenoWang/.openclaw/workspace/cc-superpowers-report.md.\n- Final summary: what changed, why, validation result, remaining risk.\n\nTask:\nImplement P1 concurrency hardening for sessions_send continuation notifications based on /Users/ZenoWang/.openclaw/workspace/cc-concurrency-assessment.md. Work in phases: 1) brainstorming, 2) writing-plans, 3) executing-plans. Deliver concrete code changes for: lease/owner mechanism for continuation ownership, atomic CAS-style state transitions with versioning, stable idempotency key derivation, runId/continuationId uniqueness constraints, and comprehensive concurrency tests (>=6) including multi-process ownership takeover and duplicate suppression. Ensure plan artifacts are produced before implementation, then execute implementation and tests. Commit with clear message(s). Return summary, changed files, test commands and results, commit hash, and rollback notes.\n```",
+  "workdir": "/Users/ZenoWang/.openclaw/workspace/openclaw",
+  "enqueued_at": "2026-02-23T23:46:44+08:00",
+  "callback": {
+    "channel": "discord",
+    "target": "853303202236858379",
+    "account": ""
+  },
+  "permission_mode": "bypassPermissions",
+  "allowed_tools": "",
+  "agent_teams": 1,
+  "teammate_mode": "auto",
+  "model": "",
+  "claude_bin": "/Users/ZenoWang/.local/bin/claude",
+  "timeout_min": 30,
+  "stall_min": 8,
+  "required_outputs": [],
+  "session_id": "09fa92fa-278e-42ba-aef4-ed3697ed0677",
+  "round": 1,
+  "status": "queued"
+}

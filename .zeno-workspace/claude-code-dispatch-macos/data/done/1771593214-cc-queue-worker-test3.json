@@ -1,0 +1,25 @@
+{
+  "task_name": "cc-queue-worker-test3",
+  "prompt": "Write cc-queue-worker-test3.txt with QUEUE_OK_3 and then reply DONE",
+  "workdir": "/Users/ZenoWang/.openclaw/workspace",
+  "enqueued_at": "2026-02-20T21:13:34+08:00",
+  "callback": {
+    "channel": "discord",
+    "target": "853303202236858379",
+    "account": ""
+  },
+  "permission_mode": "bypassPermissions",
+  "allowed_tools": "",
+  "agent_teams": 0,
+  "teammate_mode": "auto",
+  "model": "",
+  "claude_bin": "/Users/ZenoWang/.local/bin/claude",
+  "timeout_min": 3,
+  "stall_min": 8,
+  "required_output": "cc-queue-worker-test3.txt",
+  "status": "failed",
+  "started_at": "2026-02-20T21:13:34+08:00",
+  "finished_at": "2026-02-20T21:13:37+08:00",
+  "exit_code": 1,
+  "event": "Failed"
+}

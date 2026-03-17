@@ -1,0 +1,2 @@
+^DError: Session ID deed8f22-177a-4942-a026-bf4948bab0bc is already in use.
+[?25h[worker:w1] non-retryable failure rc=1, skip --continue retry

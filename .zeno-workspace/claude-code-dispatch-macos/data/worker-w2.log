@@ -1,0 +1,17 @@
+[worker:w2] started at 2026-02-20T21:27:09+08:00
+[worker:w2] running task=cc-par-a run_id=1771594038-cc-par-a at 2026-02-20T21:27:19+08:00
+^D/Users/ZenoWang/.openclaw/workspace/claude-code-dispatch-macos/scripts/worker-claude-queue.sh: line 154: 69406 Terminated: 15          python3 "$RUNNER" --claude-bin "$CLAUDE_BIN" --prompt "$PROMPT" --permission-mode "$PERMISSION_MODE" --allowed-tools "$ALLOWED_TOOLS" --teammate-mode "$TEAMMATE_MODE" --model "$MODEL" $( [[ "$AGENT_TEAMS" == "1" ]] && echo --agent-teams ) --workdir "$WORKDIR" > >(tee "$TASK_OUTPUT" "$run_output") 2>&1
+[worker:w2] finished task=cc-par-a run_id=1771594038-cc-par-a rc=0 event=ForcedStopAfterDeliverable at 2026-02-20T21:28:27+08:00
+DONE
+
+`★ Insight ─────────────────────────────────────`
+这是一个简单的文件创建任务。文件 `cc-par-a.txt` 已在当前工作目录中创建，内容为 `PAR_A`。
+`─────────────────────────────────────────────────`
+[<u[?1004l[?2004l[?25h]9;4;0;[?25h[worker:w2] running task=cc-callback-target-test run_id=1771597528-cc-callback-target-test at 2026-02-20T22:25:29+08:00
+^DOK
+[<u[?1004l[?2004l[?25h]9;4;0;[?25h[worker:w2] finished task=cc-callback-target-test run_id=1771597528-cc-callback-target-test rc=0 event=Stop at 2026-02-20T22:27:07+08:00
+[worker:w2] running task=cc-e2e-notify-test run_id=1771597686-cc-e2e-notify-test at 2026-02-20T22:28:07+08:00
+^D/Users/ZenoWang/.openclaw/workspace/claude-code-dispatch-macos/scripts/worker-claude-queue.sh: line 154:  9836 Terminated: 15          python3 "$RUNNER" --claude-bin "$CLAUDE_BIN" --prompt "$PROMPT" --permission-mode "$PERMISSION_MODE" --allowed-tools "$ALLOWED_TOOLS" --teammate-mode "$TEAMMATE_MODE" --model "$MODEL" $( [[ "$AGENT_TEAMS" == "1" ]] && echo --agent-teams ) --workdir "$WORKDIR" > >(tee "$TASK_OUTPUT" "$run_output") 2>&1
+[worker:w2] finished task=cc-e2e-notify-test run_id=1771597686-cc-e2e-notify-test rc=0 event=ForcedStopAfterDeliverable at 2026-02-20T22:29:23+08:00
+DONE
+[<u[?1004l[?2004l[?25h]9;4;0;[?25h

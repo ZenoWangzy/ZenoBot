@@ -1,0 +1,2 @@
+^DError: Invalid session ID. Must be a valid UUID.
+[?25h[worker:w1] non-retryable failure rc=1, skip --continue retry

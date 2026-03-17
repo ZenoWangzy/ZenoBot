@@ -1,0 +1,24 @@
+{
+  "task_name": "cc-evolver-local-executor",
+  "prompt": "Implement local executor for capability-evolver (replacing feishu-evolver-wrapper). Context: Evolver runs but sessions_spawn calls fail because no executor exists. Goal: (1) Create simple local executor at ~/.agents/skills/capability-evolver/skills/local-executor/ that can receive sessions_spawn JSON and execute skill creation, (2) Make Evolver's bridge mode work with local executor instead of feishu, (3) Test by running Evolver once and verify it can actually create/modify files. Deliverables: (1) Working local-executor skill, (2) Modified Evolver config to use local executor, (3) /Users/ZenoWang/.openclaw/workspace/evolver-local-executor-report.md with implementation details and test evidence. Constraint: Keep it simple, avoid external dependencies, must work on this Mac.",
+  "workdir": "/Users/ZenoWang/.openclaw/workspace",
+  "enqueued_at": "2026-02-21T16:22:38+08:00",
+  "callback": {
+    "channel": "discord",
+    "target": "853303202236858379",
+    "account": ""
+  },
+  "permission_mode": "bypassPermissions",
+  "allowed_tools": "",
+  "agent_teams": 0,
+  "teammate_mode": "auto",
+  "model": "",
+  "claude_bin": "/Users/ZenoWang/.local/bin/claude",
+  "timeout_min": 15,
+  "stall_min": 8,
+  "required_outputs": ["evolver-local-executor-report.md"],
+  "status": "running",
+  "started_at": "2026-02-21T16:23:25+08:00",
+  "worker_id": "w1",
+  "run_id": "1771662158-cc-evolver-local-executor"
+}

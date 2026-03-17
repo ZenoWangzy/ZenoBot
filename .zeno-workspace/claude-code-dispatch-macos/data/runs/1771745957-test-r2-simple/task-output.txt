@@ -1,0 +1,10 @@
+usage: claude_code_run.py [-h] --claude-bin CLAUDE_BIN [--prompt PROMPT]
+                          [--continue-latest]
+                          [--permission-mode PERMISSION_MODE]
+                          [--allowed-tools ALLOWED_TOOLS]
+                          [--teammate-mode TEAMMATE_MODE] [--model MODEL]
+                          [--agent-teams] [--workdir WORKDIR]
+                          [--session-id SESSION_ID] [--resume]
+                          [--fork-session]
+claude_code_run.py: error: unrecognized arguments: e8a49e7a-ed56-4d62-95e8-9b9ffc56f624
+[worker:w1] non-retryable failure rc=2, skip --continue retry

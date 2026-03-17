@@ -1,0 +1,2 @@
+^DError: Session ID bd83a72c-b167-4e52-9b88-fe4e5abc43f7 is already in use.
+[?25h[worker:w1] non-retryable failure rc=1, skip --continue retry

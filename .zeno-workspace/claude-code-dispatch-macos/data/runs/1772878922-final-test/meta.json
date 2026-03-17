@@ -1,0 +1,15 @@
+{
+  "run_id": "1772878922-final-test",
+  "task_name": "final-test",
+  "prompt": "test prompt",
+  "workdir": "/tmp",
+  "started_at": "2026-03-07T18:22:02+08:00",
+  "status": "running",
+  "exit_code": null,
+  "notify": {
+    "start_sent": true,
+    "last_progress_at": 0,
+    "completion_sent": false,
+    "failure_sent": false
+  }
+}

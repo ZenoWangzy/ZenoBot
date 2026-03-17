@@ -1,0 +1,9 @@
+usage: claude_code_run.py [-h] --claude-bin CLAUDE_BIN [--prompt PROMPT]
+                          [--continue-latest]
+                          [--permission-mode PERMISSION_MODE]
+                          [--allowed-tools ALLOWED_TOOLS]
+                          [--teammate-mode TEAMMATE_MODE] [--model MODEL]
+                          [--agent-teams] [--workdir WORKDIR]
+                          [--session-id SESSION_ID] [--resume]
+claude_code_run.py: error: unrecognized arguments: --fork-session
+[worker:w1] non-retryable failure rc=2, skip --continue retry

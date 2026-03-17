@@ -1,0 +1,26 @@
+{
+  "task_name": "cc-research-hooks-dispatch",
+  "prompt": "调研以下两个项目，分析如何操作gateway agent：\n\n## 项目1: claude-code-hooks\nhttps://github.com/win4r/claude-code-hooks\n\n## 项目2: claude-code-dispatch  \nhttps://github.com/win4r/claude-code-dispatch\n\n## 需要回答\n1. 这两个项目分别是做什么的？\n2. 如何通过它们控制gateway的agent？\n3. 如何激活和使用？\n4. 与我们当前的dispatch系统有什么区别？\n\n## 交付物\n/Users/ZenoWang/.openclaw/workspace/cc-hooks-dispatch-research.md\n\n包含：项目分析、使用方法、对比总结。",
+  "workdir": "/Users/ZenoWang/.openclaw/workspace",
+  "enqueued_at": "2026-02-22T19:57:32+08:00",
+  "callback": {
+    "channel": "discord",
+    "target": "853303202236858379",
+    "account": ""
+  },
+  "permission_mode": "bypassPermissions",
+  "allowed_tools": "",
+  "agent_teams": 0,
+  "teammate_mode": "auto",
+  "model": "",
+  "claude_bin": "/Users/ZenoWang/.local/bin/claude",
+  "timeout_min": 15,
+  "stall_min": 8,
+  "required_outputs": ["cc-hooks-dispatch-research.md"],
+  "session_id": "baa6049b-e98e-452a-9183-792eaf38b577",
+  "round": 1,
+  "status": "running",
+  "started_at": "2026-02-22T19:57:32+08:00",
+  "worker_id": "w1",
+  "run_id": "1771761452-cc-research-hooks-dispatch"
+}

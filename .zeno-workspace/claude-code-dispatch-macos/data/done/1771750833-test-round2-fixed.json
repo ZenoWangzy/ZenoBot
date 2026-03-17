@@ -1,0 +1,29 @@
+{
+  "task_name": "test-round2-fixed",
+  "prompt": "把greeting函数改成输出：你好世界",
+  "workdir": "/Users/ZenoWang/.openclaw/workspace",
+  "enqueued_at": "2026-02-22T17:00:33+08:00",
+  "callback": {
+    "channel": "discord",
+    "target": "853303202236858379",
+    "account": ""
+  },
+  "permission_mode": "bypassPermissions",
+  "allowed_tools": "",
+  "agent_teams": 0,
+  "teammate_mode": "auto",
+  "model": "",
+  "claude_bin": "/Users/ZenoWang/.local/bin/claude",
+  "timeout_min": 30,
+  "stall_min": 8,
+  "required_outputs": [],
+  "session_id": "e8a49e7a-ed56-4d62-95e8-9b9ffc56f624",
+  "round": 2,
+  "status": "done",
+  "started_at": "2026-02-22T17:00:33+08:00",
+  "worker_id": "w1",
+  "run_id": "1771750833-test-round2-fixed",
+  "finished_at": "2026-02-22T17:02:14+08:00",
+  "exit_code": 0,
+  "event": "Stop"
+}

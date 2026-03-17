@@ -1,0 +1,27 @@
+{
+  "task_name": "cc-meta-started-test",
+  "prompt": "Write cc-meta-started-test.txt with STARTED_OK and then reply DONE",
+  "workdir": "/Users/ZenoWang/.openclaw/workspace",
+  "enqueued_at": "2026-02-21T00:09:24+08:00",
+  "callback": {
+    "channel": "discord",
+    "target": "853303202236858379",
+    "account": ""
+  },
+  "permission_mode": "bypassPermissions",
+  "allowed_tools": "",
+  "agent_teams": 0,
+  "teammate_mode": "auto",
+  "model": "",
+  "claude_bin": "/Users/ZenoWang/.local/bin/claude",
+  "timeout_min": 30,
+  "stall_min": 8,
+  "required_outputs": ["cc-meta-started-test.txt"],
+  "status": "done",
+  "started_at": "2026-02-21T00:11:30+08:00",
+  "worker_id": "w1",
+  "run_id": "1771603764-cc-meta-started-test",
+  "finished_at": "2026-02-21T00:12:52+08:00",
+  "exit_code": 0,
+  "event": "ForcedStopAfterDeliverable"
+}

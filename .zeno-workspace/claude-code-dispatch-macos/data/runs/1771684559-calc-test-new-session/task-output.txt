@@ -1,0 +1,2 @@
+^DError: --resume requires a valid session ID when used with --print. Usage: claude -p --resume <session-id>
+[<u[?1004l[?2004l[?25h]9;4;0;[?25h[worker:w1] non-retryable failure rc=1, skip --continue retry

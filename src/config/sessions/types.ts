@@ -73,6 +73,14 @@ export type SessionEntry = {
   lastHeartbeatText?: string;
   /** Timestamp (ms) when lastHeartbeatText was delivered. */
   lastHeartbeatSentAt?: number;
+  /** Timestamp (ms) when user last sent a message */
+  lastInboundAt?: number;
+  /** Timestamp (ms) when Gateway last sent a reply */
+  lastOutboundAt?: number;
+  /** Preview of the last inbound message (for agent context) */
+  lastInboundPreview?: string;
+  /** Last time unresponded wake was triggered (for cooldown) */
+  lastUnrespondedWakeAt?: number;
   sessionId: string;
   updatedAt: number;
   sessionFile?: string;

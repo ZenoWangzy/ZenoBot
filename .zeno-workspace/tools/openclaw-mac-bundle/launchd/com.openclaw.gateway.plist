@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.openclaw.gateway</string>
+
+    <key>Comment</key>
+    <string>OpenClaw Gateway - Self-healing macOS service</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/bin/node</string>
+        <string>__HOME__/.npm-global/lib/node_modules/openclaw/dist/index.js</string>
+        <string>gateway</string>
+        <string>--port</string>
+        <string>18789</string>
+    </array>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key>
+        <string>__HOME__</string>
+        <key>OPENCLAW_GATEWAY_PORT</key>
+        <string>18789</string>
+        <key>OPENCLAW_STATE_DIR</key>
+        <string>__HOME__/.local/state/openclaw</string>
+        <key>OPENCLAW_LAUNCHD_LABEL</key>
+        <string>com.openclaw.gateway</string>
+    </dict>
+
+    <!-- Auto-restart on crash -->
+    <key>KeepAlive</key>
+    <true/>
+
+    <!-- Rate limiting: minimum 10s between restarts -->
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+
+    <!-- Run immediately on load -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- Working directory -->
+    <key>WorkingDirectory</key>
+    <string>__HOME__</string>
+
+    <!-- Log paths -->
+    <key>StandardOutPath</key>
+    <string>__HOME__/.local/state/openclaw/logs/gateway.log</string>
+    <key>StandardErrorPath</key>
+    <string>__HOME__/.local/state/openclaw/logs/gateway.err.log</string>
+
+    <!-- Track exit status for watchdog -->
+    <key>ExitStatusChange</key>
+    <true/>
+
+    <!-- Process type -->
+    <key>ProcessType</key>
+    <string>Interactive</string>
+</dict>
+</plist>

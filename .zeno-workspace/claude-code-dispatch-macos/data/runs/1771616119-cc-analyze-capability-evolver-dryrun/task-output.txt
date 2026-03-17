@@ -1,0 +1,1 @@
+[worker:w1] all required outputs detected: ["capability-evolver-dryrun-analysis.md"]

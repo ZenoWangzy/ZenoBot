@@ -1,0 +1,24 @@
+{
+  "task_name": "smoke-test",
+  "run_id": "smoke-1772882768",
+  "status": "done",
+  "created_at": 1772882768,
+  "started_at": 1772882768,
+  "updated_at": 1772882770,
+  "notify": {
+    "start_sent": true,
+    "last_progress_at": 1772882768,
+    "completion_sent": true,
+    "failure_sent": false
+  },
+  "watcher": {
+    "enabled": true,
+    "interval_sec": 300,
+    "pid": null
+  },
+  "result": {
+    "exit_code": 0,
+    "summary": "manual smoke complete",
+    "completed_at": 1772882770
+  }
+}

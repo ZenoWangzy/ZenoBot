@@ -1,0 +1,29 @@
+{
+  "task_name": "calc-test-new-session",
+  "prompt": "测试：给calculator.py添加幂运算和取模功能",
+  "workdir": "/Users/ZenoWang/.openclaw/workspace",
+  "enqueued_at": "2026-02-21T22:35:59+08:00",
+  "callback": {
+    "channel": "discord",
+    "target": "853303202236858379",
+    "account": ""
+  },
+  "permission_mode": "bypassPermissions",
+  "allowed_tools": "",
+  "agent_teams": 0,
+  "teammate_mode": "auto",
+  "model": "",
+  "claude_bin": "/Users/ZenoWang/.local/bin/claude",
+  "timeout_min": 30,
+  "stall_min": 8,
+  "required_outputs": [],
+  "session_id": "552c9474-7b8d-40bf-a131-c7fdc60b5f35",
+  "round": 2,
+  "status": "failed",
+  "started_at": "2026-02-21T22:36:01+08:00",
+  "worker_id": "w1",
+  "run_id": "1771684559-calc-test-new-session",
+  "finished_at": "2026-02-21T22:36:19+08:00",
+  "exit_code": 1,
+  "event": "FailedNonRetryable"
+}

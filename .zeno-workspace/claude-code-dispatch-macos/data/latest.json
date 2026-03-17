@@ -1,0 +1,15 @@
+{
+  "current_run_id": "1772899062-dispatch-smoke-fail-v2",
+  "session_id": "1e4a86de-12f3-49cc-9201-8e7f1c999743",
+  "timestamp": "2026-03-10T16:38:51+08:00",
+  "event": "Stop",
+  "cwd": "/Users/ZenoWang/Documents/project/openclaw",
+  "task_name": "dispatch-smoke-fail-v2",
+  "callback": {
+    "channel": "discord",
+    "target": "853303202236858379"
+  },
+  "status": "failed",
+  "exit_code": "7",
+  "output": "fake claude: fail start\nunable to connect to upstream"
+}

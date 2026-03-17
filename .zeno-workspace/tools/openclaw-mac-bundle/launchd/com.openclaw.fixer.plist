@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.openclaw.fixer</string>
+
+    <key>Comment</key>
+    <string>OpenClaw Fixer - Auto-repairs gateway using Claude Code</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>__HOME__/clawd/scripts/openclaw-fix.sh</string>
+    </array>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key>
+        <string>__HOME__</string>
+        <key>OPENCLAW_STATE_DIR</key>
+        <string>__HOME__/.local/state/openclaw</string>
+        <key>OPENCLAW_CONFIG_PATH</key>
+        <string>__HOME__/.openclaw/openclaw.json</string>
+        <key>OPENCLAW_FIX_MAX_RETRIES</key>
+        <string>3</string>
+        <key>OPENCLAW_FIX_CLAUDE_TIMEOUT</key>
+        <string>300</string>
+    </dict>
+
+    <!-- Do NOT run on load - triggered on-demand by watchdog -->
+    <key>RunAtLoad</key>
+    <false/>
+
+    <!-- Do not auto-restart -->
+    <key>KeepAlive</key>
+    <false/>
+
+    <!-- Long timeout for Claude Code (10 minutes) -->
+    <key>TimeOut</key>
+    <integer>600</integer>
+
+    <!-- Working directory -->
+    <key>WorkingDirectory</key>
+    <string>__HOME__</string>
+
+    <!-- Log paths -->
+    <key>StandardOutPath</key>
+    <string>__HOME__/.local/state/openclaw/logs/fixer.log</string>
+    <key>StandardErrorPath</key>
+    <string>__HOME__/.local/state/openclaw/logs/fixer.err.log</string>
+
+    <!-- Process type -->
+    <key>ProcessType</key>
+    <string>Interactive</string>
+</dict>
+</plist>

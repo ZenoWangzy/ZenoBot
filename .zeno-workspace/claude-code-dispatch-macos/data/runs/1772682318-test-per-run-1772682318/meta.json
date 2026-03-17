@@ -1,0 +1,15 @@
+{
+  "run_id": "1772682318-test-per-run-1772682318",
+  "task_name": "test-per-run-1772682318",
+  "prompt": "echo test-complete",
+  "workdir": "/Users/ZenoWang/.openclaw/workspace/claude-code-dispatch-macos",
+  "started_at": "2026-03-05T11:45:18+08:00",
+  "callback": {
+    "channel": "discord",
+    "target": "853303202236858379",
+    "account": ""
+  },
+  "required_output": "",
+  "status": "running",
+  "exit_code": null
+}

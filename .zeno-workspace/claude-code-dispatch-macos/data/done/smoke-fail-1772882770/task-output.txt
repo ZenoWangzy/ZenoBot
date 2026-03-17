@@ -1,0 +1,2 @@
+fatal line 1
+fatal line 2

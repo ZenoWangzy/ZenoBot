@@ -1,0 +1,59 @@
+{
+  "last_run": {
+    "run_id": "run_1771977898104",
+    "created_at": "2026-02-25T00:04:58.164Z",
+    "parent_event_id": null,
+    "selected_gene_id": null,
+    "selected_capsule_id": null,
+    "selector": {
+      "selected": null,
+      "reason": [
+        "no matching gene found; new gene may be required",
+        "signals: session_logs_missing",
+        "memory_graph: memory_prefer:gene_gep_repair_from_errors",
+        "drift_intensity: 0.577"
+      ],
+      "alternatives": []
+    },
+    "signals": ["session_logs_missing"],
+    "mutation": {
+      "type": "Mutation",
+      "id": "mut_1771977898102",
+      "category": "optimize",
+      "trigger_signals": ["session_logs_missing"],
+      "target": "behavior:protocol",
+      "expected_effect": "improve success rate and reduce repeated operational cost",
+      "risk_level": "low"
+    },
+    "mutation_id": "mut_1771977898102",
+    "personality_state": {
+      "type": "PersonalityState",
+      "rigor": 0.7,
+      "creativity": 0.35,
+      "verbosity": 0.25,
+      "risk_tolerance": 0.4,
+      "obedience": 0.85
+    },
+    "personality_key": "rigor=0.7|creativity=0.3|verbosity=0.3|risk_tolerance=0.4|obedience=0.9",
+    "personality_known": false,
+    "personality_mutations": [],
+    "drift": false,
+    "selected_by": "memory_graph+selector",
+    "source_type": "generated",
+    "reused_asset_id": null,
+    "reused_source_node": null,
+    "reused_chain_id": null,
+    "baseline_untracked": [
+      "assets/gep/candidates.jsonl",
+      "assets/gep/events.jsonl",
+      "assets/gep/genes.jsonl"
+    ],
+    "baseline_git_head": "613c05f389ed509b6ff0dd266137c26fe8e26884",
+    "blast_radius_estimate": {
+      "files": 12,
+      "lines": 960
+    },
+    "active_task_id": null,
+    "active_task_title": null
+  }
+}
