@@ -1,3 +1,4 @@
+import { resolveAgentConfig } from "../../agents/agent-scope.js";
 import { clearSessionAuthProfileOverride } from "../../agents/auth-profiles/session-override.js";
 import { lookupContextTokens } from "../../agents/context.js";
 import { DEFAULT_CONTEXT_TOKENS } from "../../agents/defaults.js";
@@ -308,6 +309,7 @@ export async function createModelSelectionState(params: {
   let allowedModelCatalog: ModelCatalog = [];
   let modelCatalog: ModelCatalog | null = null;
   let resetModelOverride = false;
+  const agentEntry = params.agentId ? resolveAgentConfig(cfg, params.agentId) : undefined;
 
   if (needsModelCatalog) {
     modelCatalog = await loadModelCatalog({ config: cfg });
@@ -397,8 +399,12 @@ export async function createModelSelectionState(params: {
       model,
       catalog: catalogForThinking,
     });
+    const agentThinkingDefault = agentEntry?.thinkingDefault as ThinkLevel | undefined;
     defaultThinkingLevel =
-      resolved ?? (agentCfg?.thinkingDefault as ThinkLevel | undefined) ?? "off";
+      agentThinkingDefault ??
+      resolved ??
+      (agentCfg?.thinkingDefault as ThinkLevel | undefined) ??
+      "off";
     return defaultThinkingLevel;
   };
 
