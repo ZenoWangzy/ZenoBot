@@ -2,7 +2,7 @@ import { resolveAgentConfig } from "../../agents/agent-scope.js";
 import { clearSessionAuthProfileOverride } from "../../agents/auth-profiles/session-override.js";
 import { lookupContextTokens } from "../../agents/context.js";
 import { DEFAULT_CONTEXT_TOKENS } from "../../agents/defaults.js";
-import { loadModelCatalog } from "../../agents/model-catalog.js";
+import type { loadModelCatalog as LoadModelCatalogFn } from "../../agents/model-catalog.js";
 import {
   buildAllowedModelSet,
   type ModelAliasIndex,
@@ -25,7 +25,7 @@ export type ModelDirectiveSelection = {
   alias?: string;
 };
 
-type ModelCatalog = Awaited<ReturnType<typeof loadModelCatalog>>;
+type ModelCatalog = Awaited<ReturnType<typeof LoadModelCatalogFn>>;
 
 type ModelSelectionState = {
   provider: string;
@@ -50,6 +50,18 @@ const FUZZY_VARIANT_TOKENS = [
   "small",
   "nano",
 ];
+
+/**
+ * Normalizes deprecated xAI beta model naming conventions.
+ * e.g. "grok-4.20-experimental-beta-0304-reasoning" → "grok-4.20-reasoning"
+ */
+function normalizeDeprecatedXaiBetaModel(provider: string, model: string): string {
+  if (provider !== "xai") {
+    return model;
+  }
+  // Strip "-experimental-beta-MMDD-" infix
+  return model.replace(/-experimental-beta-\d{4}-/, "-");
+}
 
 function boundedLevenshteinDistance(a: string, b: string, maxDistance: number): number | null {
   if (a === b) {
@@ -303,7 +315,13 @@ export async function createModelSelectionState(params: {
     parentSessionKey,
   });
   const hasStoredOverride = Boolean(initialStoredOverride);
-  const needsModelCatalog = params.hasModelDirective || hasAllowlist || hasStoredOverride;
+  // When cfg.models.providers is configured, the allowlist and override checks
+  // can be satisfied from config directly — skip the remote catalog fetch.
+  const hasConfiguredProviders =
+    cfg.models?.providers != null && Object.keys(cfg.models.providers).length > 0;
+  const needsModelCatalog =
+    !hasConfiguredProviders && (params.hasModelDirective || hasAllowlist || hasStoredOverride);
+  const needsAllowedSet = hasAllowlist || hasStoredOverride;
 
   let allowedModelKeys = new Set<string>();
   let allowedModelCatalog: ModelCatalog = [];
@@ -312,6 +330,7 @@ export async function createModelSelectionState(params: {
   const agentEntry = params.agentId ? resolveAgentConfig(cfg, params.agentId) : undefined;
 
   if (needsModelCatalog) {
+    const { loadModelCatalog } = await import("../../agents/model-catalog.js");
     modelCatalog = await loadModelCatalog({ config: cfg });
     const allowed = buildAllowedModelSet({
       cfg,
@@ -322,10 +341,24 @@ export async function createModelSelectionState(params: {
     });
     allowedModelCatalog = allowed.allowedCatalog;
     allowedModelKeys = allowed.allowedKeys;
+  } else if (hasConfiguredProviders && needsAllowedSet) {
+    // Build the allowed set from the configured providers without fetching the catalog.
+    // buildAllowedModelSet creates synthetic entries for any keys not in the (empty) catalog.
+    const allowed = buildAllowedModelSet({
+      cfg,
+      catalog: [],
+      defaultProvider,
+      defaultModel,
+      agentId: params.agentId,
+    });
+    allowedModelCatalog = allowed.allowedCatalog;
+    allowedModelKeys = allowed.allowedKeys;
   }
 
   if (sessionEntry && sessionStore && sessionKey && hasStoredOverride) {
-    const overrideProvider = sessionEntry.providerOverride?.trim() || defaultProvider;
+    const overrideProvider = normalizeProviderId(
+      sessionEntry.providerOverride?.trim() || defaultProvider,
+    );
     const overrideModel = sessionEntry.modelOverride?.trim();
     if (overrideModel) {
       const key = modelKey(overrideProvider, overrideModel);
@@ -358,11 +391,14 @@ export async function createModelSelectionState(params: {
   // the regular session/parent model override behavior.
   const skipStoredOverride = params.hasResolvedHeartbeatModelOverride === true;
   if (storedOverride?.model && !skipStoredOverride) {
-    const candidateProvider = storedOverride.provider || defaultProvider;
-    const key = modelKey(candidateProvider, storedOverride.model);
-    if (allowedModelKeys.size === 0 || allowedModelKeys.has(key)) {
+    const candidateProvider = normalizeProviderId(storedOverride.provider || defaultProvider);
+    const candidateModel = normalizeDeprecatedXaiBetaModel(candidateProvider, storedOverride.model);
+    const key = modelKey(candidateProvider, candidateModel);
+    // Also accept the pre-normalization key so deprecated aliases clear the allowlist check.
+    const rawKey = modelKey(candidateProvider, storedOverride.model);
+    if (allowedModelKeys.size === 0 || allowedModelKeys.has(key) || allowedModelKeys.has(rawKey)) {
       provider = candidateProvider;
-      model = storedOverride.model;
+      model = candidateModel;
     }
   }
 
@@ -390,8 +426,9 @@ export async function createModelSelectionState(params: {
     }
     let catalogForThinking = modelCatalog ?? allowedModelCatalog;
     if (!catalogForThinking || catalogForThinking.length === 0) {
+      const { loadModelCatalog } = await import("../../agents/model-catalog.js");
       modelCatalog = await loadModelCatalog({ config: cfg });
-      catalogForThinking = modelCatalog;
+      catalogForThinking = modelCatalog!;
     }
     const resolved = resolveThinkingDefault({
       cfg,
@@ -410,9 +447,21 @@ export async function createModelSelectionState(params: {
 
   const resolveDefaultReasoningLevel = async (): Promise<"on" | "off"> => {
     let catalogForReasoning = modelCatalog ?? allowedModelCatalog;
+    if (hasConfiguredProviders) {
+      // Augment with provider config entries which carry the full metadata (e.g. reasoning flag).
+      const providerEntries: ModelCatalog = Object.entries(cfg.models!.providers!).flatMap(
+        ([providerKey, providerCfg]) =>
+          (providerCfg.models ?? []).map((m) => ({
+            ...m,
+            provider: normalizeProviderId(providerKey),
+          })) satisfies ModelCatalog,
+      );
+      catalogForReasoning = [...providerEntries, ...(catalogForReasoning ?? [])];
+    }
     if (!catalogForReasoning || catalogForReasoning.length === 0) {
+      const { loadModelCatalog } = await import("../../agents/model-catalog.js");
       modelCatalog = await loadModelCatalog({ config: cfg });
-      catalogForReasoning = modelCatalog;
+      catalogForReasoning = modelCatalog!;
     }
     return resolveReasoningDefault({
       provider,
@@ -429,7 +478,7 @@ export async function createModelSelectionState(params: {
     resetModelOverride,
     resolveDefaultThinkingLevel,
     resolveDefaultReasoningLevel,
-    needsModelCatalog,
+    needsModelCatalog: needsModelCatalog || (hasConfiguredProviders && needsAllowedSet),
   };
 }
 

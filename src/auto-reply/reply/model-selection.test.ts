@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { loadModelCatalog } from "../../agents/model-catalog.js";
 import type { OpenClawConfig } from "../../config/config.js";
 import type { SessionEntry } from "../../config/sessions.js";
 import { createModelSelectionState } from "./model-selection.js";
