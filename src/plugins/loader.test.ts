@@ -3306,3 +3306,16 @@ describe("clearPluginLoaderCache", () => {
     expect(buildMemoryPromptSection({ availableTools: new Set() })).toEqual([]);
   });
 });
+
+describe("clearPluginLoaderCache", () => {
+  it("resets the registered memory prompt section builder", () => {
+    registerMemoryPromptSection(() => ["stale memory section"]);
+    expect(buildMemoryPromptSection({ availableTools: new Set() })).toEqual([
+      "stale memory section",
+    ]);
+
+    clearPluginLoaderCache();
+
+    expect(buildMemoryPromptSection({ availableTools: new Set() })).toEqual([]);
+  });
+});

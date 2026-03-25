@@ -1254,6 +1254,25 @@ export async function compactEmbeddedPiSessionDirect(
             });
           }
         }
+        // Truncate session file to remove compacted entries (#39953)
+        if (params.config?.agents?.defaults?.compaction?.truncateAfterCompaction) {
+          try {
+            const truncResult = await truncateSessionAfterCompaction({
+              sessionFile: params.sessionFile,
+            });
+            if (truncResult.truncated) {
+              log.info(
+                `[compaction] post-compaction truncation removed ${truncResult.entriesRemoved} entries ` +
+                  `(sessionKey=${params.sessionKey ?? params.sessionId})`,
+              );
+            }
+          } catch (err) {
+            log.warn("[compaction] post-compaction truncation failed", {
+              errorMessage: err instanceof Error ? err.message : String(err),
+              errorStack: err instanceof Error ? err.stack : undefined,
+            });
+          }
+        }
         return {
           ok: true,
           compacted: true,
