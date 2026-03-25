@@ -33,8 +33,8 @@ vi.mock("../runtime/registry.js", async (importOriginal) => {
   };
 });
 
-const { AcpSessionManager } = await import("./manager.js");
-const { AcpRuntimeError } = await import("../runtime/errors.js");
+let { AcpSessionManager } = await import("./manager.js");
+let { AcpRuntimeError } = await import("../runtime/errors.js");
 
 const baseCfg = {
   acp: {

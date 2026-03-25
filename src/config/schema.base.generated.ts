@@ -12911,12 +12911,12 @@ export const GENERATED_BASE_CONFIG_SCHEMA = {
     },
     "tools.web.search.provider": {
       label: "Web Search Provider",
-      help: "Search provider id. Auto-detected from available API keys if omitted.",
+      help: 'Search provider ("brave", "firecrawl", "gemini", "grok", "kimi", or "perplexity"). Auto-detected from available API keys if omitted.',
       tags: ["tools"],
     },
     "tools.web.search.maxResults": {
       label: "Web Search Max Results",
-      help: "Number of results to return (1-10).",
+      help: "Default number of results to return (1-10).",
       tags: ["performance", "tools"],
     },
     "tools.web.search.timeoutSeconds": {
@@ -12928,6 +12928,63 @@ export const GENERATED_BASE_CONFIG_SCHEMA = {
       label: "Web Search Cache TTL (min)",
       help: "Cache TTL in minutes for web_search results.",
       tags: ["performance", "storage", "tools"],
+    },
+    "tools.web.search.firecrawl.apiKey": {
+      label: "Firecrawl Search API Key",
+      tags: ["security", "auth", "tools"],
+      sensitive: true,
+    },
+    "tools.web.search.firecrawl.baseUrl": {
+      label: "Firecrawl Search Base URL",
+      tags: ["tools"],
+    },
+    "tools.web.search.perplexity.apiKey": {
+      label: "Perplexity API Key",
+      tags: ["security", "auth", "tools"],
+      sensitive: true,
+    },
+    "tools.web.search.perplexity.baseUrl": {
+      label: "Perplexity Base URL",
+      tags: ["tools"],
+    },
+    "tools.web.search.perplexity.model": {
+      label: "Perplexity Model",
+      tags: ["models", "tools"],
+    },
+    "tools.web.search.gemini.apiKey": {
+      label: "Gemini Search API Key",
+      tags: ["security", "auth", "tools"],
+      sensitive: true,
+    },
+    "tools.web.search.gemini.model": {
+      label: "Gemini Search Model",
+      tags: ["models", "tools"],
+    },
+    "tools.web.search.grok.apiKey": {
+      label: "Grok Search API Key",
+      tags: ["security", "auth", "tools"],
+      sensitive: true,
+    },
+    "tools.web.search.grok.model": {
+      label: "Grok Search Model",
+      tags: ["models", "tools"],
+    },
+    "tools.web.search.brave.mode": {
+      label: "Brave Search Mode",
+      tags: ["tools"],
+    },
+    "tools.web.search.kimi.apiKey": {
+      label: "Kimi Search API Key",
+      tags: ["security", "auth", "tools"],
+      sensitive: true,
+    },
+    "tools.web.search.kimi.baseUrl": {
+      label: "Kimi Search Base URL",
+      tags: ["tools"],
+    },
+    "tools.web.search.kimi.model": {
+      label: "Kimi Search Model",
+      tags: ["models", "tools"],
     },
     "tools.web.fetch.enabled": {
       label: "Enable Web Fetch Tool",
@@ -14155,6 +14212,26 @@ export const GENERATED_BASE_CONFIG_SCHEMA = {
       label: "Heartbeat Suppress Tool Error Warnings",
       help: "Suppress tool error warning payloads during heartbeat runs.",
       tags: ["automation"],
+    },
+    "agents.defaults.heartbeat.unresponded.enabled": {
+      label: "Unresponded Detection Enabled",
+      help: "Enable detection of unresponded messages. When enabled, the system will check if user messages have not received a response within the timeout period.",
+      tags: ["automation"],
+    },
+    "agents.defaults.heartbeat.unresponded.timeout": {
+      label: "Unresponded Detection Timeout",
+      help: "Timeout duration before triggering unresponded detection. Duration string (e.g., '5m', '10m', '1h'). Default: 10m",
+      tags: ["performance", "automation"],
+    },
+    "agents.list.*.heartbeat.unresponded.enabled": {
+      label: "Unresponded Detection Enabled",
+      help: "Enable detection of unresponded messages. When enabled, the system will check if user messages have not received a response within the timeout period.",
+      tags: ["automation"],
+    },
+    "agents.list.*.heartbeat.unresponded.timeout": {
+      label: "Unresponded Detection Timeout",
+      help: "Timeout duration before triggering unresponded detection. Duration string (e.g., '5m', '10m', '1h'). Default: 10m",
+      tags: ["performance", "automation"],
     },
     "agents.defaults.sandbox.browser.network": {
       label: "Sandbox Browser Network",
@@ -16117,6 +16194,11 @@ export const GENERATED_BASE_CONFIG_SCHEMA = {
       help: "Plugin entry name inside the source marketplace, used for later updates.",
       tags: ["advanced"],
     },
+    "tools.web.search.apiKey": {
+      help: "Brave Search API key (fallback: BRAVE_API_KEY env var).",
+      tags: ["security", "auth", "tools"],
+      sensitive: true,
+    },
     "models.providers.*.headers.*": {
       sensitive: true,
       tags: ["security", "models"],
@@ -16149,31 +16231,7 @@ export const GENERATED_BASE_CONFIG_SCHEMA = {
       sensitive: true,
       tags: ["security", "storage"],
     },
-    "tools.web.search.apiKey": {
-      sensitive: true,
-      tags: ["security", "auth", "tools"],
-    },
     "tools.web.search.brave.apiKey": {
-      sensitive: true,
-      tags: ["security", "auth", "tools"],
-    },
-    "tools.web.search.firecrawl.apiKey": {
-      sensitive: true,
-      tags: ["security", "auth", "tools"],
-    },
-    "tools.web.search.gemini.apiKey": {
-      sensitive: true,
-      tags: ["security", "auth", "tools"],
-    },
-    "tools.web.search.grok.apiKey": {
-      sensitive: true,
-      tags: ["security", "auth", "tools"],
-    },
-    "tools.web.search.kimi.apiKey": {
-      sensitive: true,
-      tags: ["security", "auth", "tools"],
-    },
-    "tools.web.search.perplexity.apiKey": {
       sensitive: true,
       tags: ["security", "auth", "tools"],
     },

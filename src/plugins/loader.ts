@@ -100,27 +100,6 @@ type CachedPluginState = {
   memoryPromptBuilder: ReturnType<typeof getMemoryPromptSectionBuilder>;
 };
 
-export class PluginLoadFailureError extends Error {
-  readonly pluginIds: string[];
-  readonly registry: PluginRegistry;
-
-  constructor(registry: PluginRegistry) {
-    const failedPlugins = registry.plugins.filter((entry) => entry.status === "error");
-    const summary = failedPlugins
-      .map((entry) => `${entry.id}: ${entry.error ?? "unknown plugin load error"}`)
-      .join("; ");
-    super(`plugin load failed: ${summary}`);
-    this.name = "PluginLoadFailureError";
-    this.pluginIds = failedPlugins.map((entry) => entry.id);
-    this.registry = registry;
-  }
-}
-
-type CachedPluginState = {
-  registry: PluginRegistry;
-  memoryPromptBuilder: ReturnType<typeof getMemoryPromptSectionBuilder>;
-};
-
 const MAX_PLUGIN_REGISTRY_CACHE_ENTRIES = 128;
 let pluginRegistryCacheEntryCap = MAX_PLUGIN_REGISTRY_CACHE_ENTRIES;
 const registryCache = new Map<string, CachedPluginState>();
