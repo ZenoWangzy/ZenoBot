@@ -1209,6 +1209,7 @@ export class QmdMemoryManager implements MemorySearchManager {
         args,
         env: this.env,
         packageName: "qmd",
+        allowShellFallback: true,
       }),
       env: this.env,
       cwd: this.workspaceDir,
@@ -1256,6 +1257,7 @@ export class QmdMemoryManager implements MemorySearchManager {
       args,
       env: this.env,
       packageName: "mcporter",
+      allowShellFallback: true,
     });
     return await runCliCommand({
       commandSummary: `${spawnInvocation.command} ${spawnInvocation.argv.join(" ")}`,

@@ -102,7 +102,7 @@ function resolveEntrypointFromCmdShim(wrapperPath: string): string | null {
     const candidates: string[] = [];
     for (const match of content.matchAll(/"([^"\r\n]*)"/g)) {
       const token = match[1] ?? "";
-      const relMatch = token.match(/%~?dp0%?\s*[\\/]*(.*)$/i);
+      const relMatch = token.match(/%~?dp0%?\s*(.*)$/i);
       const relative = relMatch?.[1]?.trim();
       if (!relative) {
         continue;
