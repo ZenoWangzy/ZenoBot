@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 import { removePathIfExists } from "./runtime-postbuild-shared.mjs";
 
@@ -109,11 +110,76 @@ function stagePluginRuntimeOverlay(sourceDir, targetDir) {
 
 function linkPluginNodeModules(params) {
   const runtimeNodeModulesDir = path.join(params.runtimePluginDir, "node_modules");
+  const sourcePluginNodeModulesDir = params.sourcePluginNodeModulesDir;
+  const distPluginNodeModulesDir = params.distPluginNodeModulesDir;
+
   removePathIfExists(runtimeNodeModulesDir);
-  if (!fs.existsSync(params.sourcePluginNodeModulesDir)) {
+
+  // Check if dist node_modules exists (after build, dist should have node_modules)
+  if (distPluginNodeModulesDir && fs.existsSync(distPluginNodeModulesDir)) {
+    // Use dist node_modules if available (already installed by build process)
+    fs.symlinkSync(distPluginNodeModulesDir, runtimeNodeModulesDir, symlinkType());
     return;
   }
+
+  // Fall back to source node_modules
+  if (!fs.existsSync(sourcePluginNodeModulesDir)) {
+    return;
+  }
+
   ensureSymlink(params.sourcePluginNodeModulesDir, runtimeNodeModulesDir, symlinkType());
+}
+
+function hasDependencies(pluginDir) {
+  const packageJsonPath = path.join(pluginDir, "package.json");
+  if (!fs.existsSync(packageJsonPath)) {
+    return false;
+  }
+  try {
+    const content = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));
+    return content.dependencies && Object.keys(content.dependencies).length > 0;
+  } catch {
+    return false;
+  }
+}
+
+function ensurePluginNodeModules(pluginDir, pluginName) {
+  const nodeModulesDir = path.join(pluginDir, "node_modules");
+  const packageLockPath = path.join(pluginDir, "package-lock.json");
+
+  // Already installed
+  if (fs.existsSync(nodeModulesDir) && fs.existsSync(packageLockPath)) {
+    return true;
+  }
+
+  // Check if plugin has dependencies to install
+  if (!hasDependencies(pluginDir)) {
+    return false;
+  }
+
+  console.log(`[postbuild] Installing dependencies for ${pluginName}...`);
+  const result = spawnSync("npm", ["install", "--omit=dev"], {
+    cwd: pluginDir,
+    stdio: "pipe",
+    shell: process.platform === "win32",
+    encoding: "utf8",
+  });
+
+  if (result.error) {
+    console.error(`[postbuild] Failed to install dependencies for ${pluginName}: ${result.error.message}`);
+    return false;
+  }
+
+  if (result.status !== 0) {
+    console.error(`[postbuild] npm install failed for ${pluginName} (exit code ${result.status})`);
+    if (result.stderr) {
+      console.error(result.stderr);
+    }
+    return false;
+  }
+
+  console.log(`[postbuild] Dependencies installed for ${pluginName}`);
+  return true;
 }
 
 export function stageBundledPluginRuntime(params = {}) {
@@ -137,12 +203,18 @@ export function stageBundledPluginRuntime(params = {}) {
     }
     const distPluginDir = path.join(distExtensionsRoot, dirent.name);
     const runtimePluginDir = path.join(runtimeExtensionsRoot, dirent.name);
+    const sourcePluginNodeModulesDir = path.join(sourceExtensionsRoot, dirent.name, "node_modules");
     const distPluginNodeModulesDir = path.join(distPluginDir, "node_modules");
 
+    // Ensure node_modules exists in dist (auto-install if needed)
+    ensurePluginNodeModules(distPluginDir, dirent.name);
+
     stagePluginRuntimeOverlay(distPluginDir, runtimePluginDir);
+
     linkPluginNodeModules({
       runtimePluginDir,
-      sourcePluginNodeModulesDir: distPluginNodeModulesDir,
+      sourcePluginNodeModulesDir,
+      distPluginNodeModulesDir,
     });
   }
 }
