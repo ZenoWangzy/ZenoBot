@@ -764,9 +764,25 @@ export async function processDiscordMessage(ctx: DiscordMessagePreflightContext)
             }
           : undefined,
         onModelSelected,
-        onReasoningStream: async () => {
-          await statusReactions.setThinking();
-        },
+        onReasoningStream: draftStream
+          ? async (payload) => {
+              await statusReactions.setThinking();
+              if (payload.text) {
+                // Show reasoning in draft with a thinking prefix.
+                // Truncate to keep under Discord 2000 char limit (reserve room for prefix/suffix).
+                let cleaned = payload.text.trim();
+                const maxReasoningChars = draftMaxChars - 20;
+                if (cleaned.length > maxReasoningChars) {
+                  cleaned = `...${cleaned.slice(-maxReasoningChars)}`;
+                }
+                if (cleaned) {
+                  draftStream.update(`💭 _${cleaned}_`);
+                }
+              }
+            }
+          : async () => {
+              await statusReactions.setThinking();
+            },
         onToolStart: async (payload) => {
           if (isProcessAborted(abortSignal)) {
             return;

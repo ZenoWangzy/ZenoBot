@@ -780,6 +780,21 @@ export async function monitorDiscordProvider(opts: MonitorDiscordOpts = {}) {
       listenerTimeout: 120_000,
       ...discordCfg.eventQueue,
     };
+
+    // Patch globalThis.fetch so Carbon's RequestClient routes through proxy.
+    // Carbon hardcodes native fetch which ignores HTTP_PROXY / undici dispatcher.
+    if (rawDiscordCfg.proxy?.trim()) {
+      const { ProxyAgent, fetch: undiciFetch } = await import("undici");
+      const proxyAgent = new ProxyAgent(rawDiscordCfg.proxy.trim());
+      globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) =>
+        undiciFetch(input as string | URL, {
+          ...(init as Record<string, unknown>),
+          dispatcher: proxyAgent,
+        })
+      ) as unknown as typeof fetch;
+      runtime.log?.("discord: patched globalThis.fetch for Carbon REST proxy");
+    }
+
     const client = new Client(
       {
         baseUrl: "http://localhost",
