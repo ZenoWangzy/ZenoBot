@@ -82,7 +82,7 @@ import {
 import { resolveDiscordPresenceUpdate } from "./presence.js";
 import { resolveDiscordAllowlistConfig } from "./provider.allowlist.js";
 import { runDiscordGatewayLifecycle } from "./provider.lifecycle.js";
-import { resolveDiscordRestFetch } from "./rest-fetch.js";
+import { registerDiscordRestProxyRouting, resolveDiscordRestFetch } from "./rest-fetch.js";
 import { formatDiscordStartupStatusMessage } from "./startup-status.js";
 import type { DiscordMonitorStatusSink } from "./status.js";
 import { formatThreadBindingDurationLabel } from "./thread-bindings.messages.js";
@@ -464,6 +464,7 @@ export async function monitorDiscordProvider(opts: MonitorDiscordOpts = {}) {
   const discordAccountThreadBindings =
     cfg.channels?.discord?.accounts?.[account.accountId]?.threadBindings;
   const discordRestFetch = resolveDiscordRestFetch(rawDiscordCfg.proxy, runtime);
+  registerDiscordRestProxyRouting({ token, restFetch: discordRestFetch });
   const dmConfig = rawDiscordCfg.dm;
   let guildEntries = rawDiscordCfg.guilds;
   const defaultGroupPolicy = resolveDefaultGroupPolicy(cfg);
@@ -790,8 +791,7 @@ export async function monitorDiscordProvider(opts: MonitorDiscordOpts = {}) {
         undiciFetch(input as string | URL, {
           ...(init as Record<string, unknown>),
           dispatcher: proxyAgent,
-        })
-      ) as unknown as typeof fetch;
+        })) as unknown as typeof fetch;
       runtime.log?.("discord: patched globalThis.fetch for Carbon REST proxy");
     }
 

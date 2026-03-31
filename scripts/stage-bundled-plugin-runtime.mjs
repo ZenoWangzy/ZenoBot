@@ -1,6 +1,6 @@
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 import { removePathIfExists } from "./runtime-postbuild-shared.mjs";
 
@@ -166,7 +166,9 @@ function ensurePluginNodeModules(pluginDir, pluginName) {
   });
 
   if (result.error) {
-    console.error(`[postbuild] Failed to install dependencies for ${pluginName}: ${result.error.message}`);
+    console.error(
+      `[postbuild] Failed to install dependencies for ${pluginName}: ${result.error.message}`,
+    );
     return false;
   }
 
@@ -188,6 +190,7 @@ export function stageBundledPluginRuntime(params = {}) {
   const runtimeRoot = path.join(repoRoot, "dist-runtime");
   const distExtensionsRoot = path.join(distRoot, "extensions");
   const runtimeExtensionsRoot = path.join(runtimeRoot, "extensions");
+  const sourceExtensionsRoot = path.join(repoRoot, "extensions");
 
   if (!fs.existsSync(distExtensionsRoot)) {
     removePathIfExists(runtimeRoot);

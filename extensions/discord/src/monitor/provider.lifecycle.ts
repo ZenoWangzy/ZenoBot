@@ -15,7 +15,7 @@ type ExecApprovalsHandler = {
   stop: () => Promise<void>;
 };
 
-const DISCORD_GATEWAY_READY_TIMEOUT_MS = 15_000;
+const DISCORD_GATEWAY_READY_TIMEOUT_MS = 60_000;
 const DISCORD_GATEWAY_READY_POLL_MS = 250;
 
 type GatewayReadyWaitResult = "ready" | "timeout" | "stopped";
