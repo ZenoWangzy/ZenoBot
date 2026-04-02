@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT_DIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+cd "$ROOT_DIR"
+
+current_branch="$(git symbolic-ref --quiet --short HEAD || true)"
+if [[ "$current_branch" != "main" ]]; then
+  exit 0
+fi
+
+if ! git diff --quiet || ! git diff --cached --quiet; then
+  echo "pre-push blocked: working tree is not clean on main." >&2
+  echo "Commit or stash changes before pushing main." >&2
+  exit 1
+fi
+
+if ! git show-ref --verify --quiet refs/remotes/origin/main; then
+  echo "pre-push blocked: missing origin/main. Run: git fetch origin --prune" >&2
+  exit 1
+fi
+
+git fetch origin --prune --quiet
+
+counts="$(git rev-list --left-right --count HEAD...origin/main)"
+ahead="${counts%% *}"
+behind="${counts##* }"
+
+if [[ "$behind" != "0" ]]; then
+  echo "pre-push blocked: local main is behind origin/main by $behind commit(s)." >&2
+  echo "Run: git rebase origin/main" >&2
+  exit 1
+fi
+
+if [[ "$ahead" == "0" ]]; then
+  echo "pre-push blocked: nothing to push from main." >&2
+  exit 1
+fi
+
+exit 0
