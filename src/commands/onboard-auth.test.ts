@@ -488,14 +488,11 @@ describe("applyZaiConfig", () => {
       api: "openai-completions",
     });
     const ids = cfg.models?.providers?.zai?.models?.map((m) => m.id);
-    expect(ids).toContain("glm-5.1");
     expect(ids).toContain("glm-5");
     expect(ids).toContain("glm-5-turbo");
     expect(ids).toContain("glm-4.7");
     expect(ids).toContain("glm-4.7-flash");
     expect(ids).toContain("glm-4.7-flashx");
-    expect(cfg.agents?.defaults?.models?.["zai/glm-5.1"]).toEqual({});
-    expect(cfg.agents?.defaults?.models?.["zai/glm-5"]).toEqual({ alias: "GLM" });
   });
 
   it("supports CN endpoint for supported coding models", () => {

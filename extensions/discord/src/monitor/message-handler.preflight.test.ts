@@ -532,65 +532,6 @@ describe("preflightDiscordMessage", () => {
     expect(result).not.toBeNull();
   });
 
-  it("treats PluralKit webhook messages as non-bot sender identity when enabled", async () => {
-    const channelId = "channel-pk-webhook";
-    const guildId = "guild-pk-webhook";
-    const message = {
-      ...createDiscordMessage({
-        id: "m-pk-webhook",
-        channelId,
-        content: "proxy hello",
-        author: {
-          id: "relay-bot-1",
-          bot: true,
-          username: "PluralKit",
-        },
-      }),
-      webhookId: "pk-wh-1",
-    } as unknown as import("@buape/carbon").Message;
-    const originalFetch = globalThis.fetch;
-    const fetchMock = vi.fn(
-      async () =>
-        new Response(
-          JSON.stringify({
-            id: "m-pk-webhook",
-            member: { id: "pk-member-1", name: "Zoeyu", display_name: "Zoeyu Wang [CLAW]" },
-            system: { id: "pk-system-1", name: "CLAW" },
-          }),
-          { status: 200 },
-        ),
-    );
-    vi.stubGlobal("fetch", fetchMock);
-    try {
-      const result = await runGuildPreflight({
-        channelId,
-        guildId,
-        message,
-        discordConfig: {
-          allowBots: false,
-          pluralkit: { enabled: true },
-        } as DiscordConfig,
-        guildEntries: {
-          [guildId]: {
-            requireMention: false,
-          },
-        },
-      });
-
-      expect(fetchMock).toHaveBeenCalledTimes(1);
-      expect(result).not.toBeNull();
-      expect(result?.sender.isPluralKit).toBe(true);
-      expect(result?.sender.id).toBe("pk-member-1");
-    } finally {
-      if (originalFetch) {
-        vi.stubGlobal("fetch", originalFetch);
-      } else {
-        // Keep global state clean if fetch was initially undefined.
-        Reflect.deleteProperty(globalThis, "fetch");
-      }
-    }
-  });
-
   it("accepts allowlisted guild messages when guild object is missing", async () => {
     const message = createDiscordMessage({
       id: "m-guild-id-only",

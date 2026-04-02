@@ -11,7 +11,6 @@ import {
 export const ZAI_DEFAULT_MODEL_REF = `zai/${ZAI_DEFAULT_MODEL_ID}`;
 
 const ZAI_DEFAULT_MODELS = [
-  buildZaiModelDefinition({ id: "glm-5.1" }),
   buildZaiModelDefinition({ id: "glm-5" }),
   buildZaiModelDefinition({ id: "glm-5-turbo" }),
   buildZaiModelDefinition({ id: "glm-4.7" }),
@@ -39,16 +38,12 @@ function applyZaiPreset(
 ): OpenClawConfig {
   const modelId = params?.modelId?.trim() || ZAI_DEFAULT_MODEL_ID;
   const modelRef = `zai/${modelId}`;
-  const aliases: (string | { modelRef: string; alias?: string })[] = [
-    ...ZAI_DEFAULT_MODELS.map((entry) => `zai/${entry.id}`),
-    { modelRef, alias: "GLM" },
-  ];
   return applyProviderConfigWithModelCatalogPreset(cfg, {
     providerId: "zai",
     api: "openai-completions",
     baseUrl: resolveZaiPresetBaseUrl(cfg, params?.endpoint),
     catalogModels: ZAI_DEFAULT_MODELS,
-    aliases,
+    aliases: [{ modelRef, alias: "GLM" }],
     primaryModelRef,
   });
 }

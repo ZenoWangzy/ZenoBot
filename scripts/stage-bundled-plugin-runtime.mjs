@@ -190,7 +190,6 @@ export function stageBundledPluginRuntime(params = {}) {
   const runtimeRoot = path.join(repoRoot, "dist-runtime");
   const distExtensionsRoot = path.join(distRoot, "extensions");
   const runtimeExtensionsRoot = path.join(runtimeRoot, "extensions");
-  const sourceExtensionsRoot = path.join(repoRoot, "extensions");
 
   if (!fs.existsSync(distExtensionsRoot)) {
     removePathIfExists(runtimeRoot);

@@ -264,8 +264,7 @@ export async function preflightDiscordMessage(
 
   const pluralkitConfig = params.discordConfig?.pluralkit;
   const webhookId = resolveDiscordWebhookId(message);
-  // PluralKit proxied messages are delivered as webhooks; only those need PK lookup.
-  const shouldCheckPluralKit = Boolean(pluralkitConfig?.enabled) && Boolean(webhookId);
+  const shouldCheckPluralKit = Boolean(pluralkitConfig?.enabled) && !webhookId;
   let pluralkitInfo: Awaited<ReturnType<typeof fetchPluralKitMessageInfo>> = null;
   if (shouldCheckPluralKit) {
     try {

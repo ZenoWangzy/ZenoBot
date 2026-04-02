@@ -475,7 +475,6 @@ vi.mock("../../../extensions/discord/src/monitor/rest-fetch.js", () => ({
   resolveDiscordRestFetch: () => async () => {
     throw new Error("offline");
   },
-  registerDiscordRestProxyRouting: vi.fn(),
 }));
 
 vi.mock("../../../extensions/discord/src/monitor/thread-bindings.js", () => ({

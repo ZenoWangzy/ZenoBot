@@ -24,14 +24,6 @@ export const ZAI_DEFAULT_COST = {
 } satisfies ModelDefinitionConfig["cost"];
 
 const ZAI_MODEL_CATALOG = {
-  "glm-5.1": {
-    name: "GLM-5.1",
-    reasoning: true,
-    input: ["text"],
-    contextWindow: 202800,
-    maxTokens: 131100,
-    cost: ZAI_DEFAULT_COST,
-  },
   "glm-5": {
     name: "GLM-5",
     reasoning: true,
