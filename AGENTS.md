@@ -146,6 +146,10 @@
 
 - If `git branch -d/-D <branch>` is policy-blocked, delete the local ref directly: `git update-ref -d refs/heads/<branch>`.
 - Agents MUST NOT create or push merge commits on `main`. If `main` has advanced, rebase local commits onto the latest `origin/main` before pushing.
+- Cross-device policy (Win + Mac): keep `main` rebase-first. Before coding and before pushing run `git fetch origin --prune` then `git rebase origin/main`.
+- Upstream maintenance policy: for fork upgrades, fetch both remotes and rebase onto `upstream/main`, then push back to `origin/main` after checks pass.
+- Repo bootstrap: run `bash scripts/setup-git-policy.sh` (Windows: `bash scripts/setup-git-policy.sh --windows`) so Codex/CC CLI sessions share consistent Git behavior.
+- Hook guardrail: `git-hooks/pre-push` blocks pushing stale or dirty `main`; keep `core.hooksPath=git-hooks` enabled.
 - Bulk PR close/reopen safety: if a close action would affect more than 5 PRs, first ask for explicit user confirmation with the exact PR count and target scope/query.
 
 ## Security & Configuration Tips

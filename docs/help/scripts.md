@@ -22,6 +22,16 @@ Use these when a task is clearly tied to a script; otherwise prefer the CLI.
 Auth monitoring scripts are documented here:
 [/automation/auth-monitoring](/automation/auth-monitoring)
 
+## Git policy setup script
+
+Use `scripts/setup-git-policy.sh` to apply cross-device Git defaults in this repository.
+
+- Sets rebase-first sync defaults (`pull.rebase`, `rerere`, `fetch.prune`, and `push.default`).
+- Configures hooks with `core.hooksPath=git-hooks`.
+- Applies platform-safe line ending policy (`--windows` sets `core.autocrlf=false`).
+
+See the full workflow in [/help/git-sync](/help/git-sync).
+
 ## When adding scripts
 
 - Keep scripts focused and documented.
