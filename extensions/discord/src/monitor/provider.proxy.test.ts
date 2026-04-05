@@ -100,9 +100,12 @@ vi.mock("undici", () => ({
 
 vi.mock("ws", () => ({
   default: class MockWebSocket {
+    readyState = 1; // OPEN
     constructor(url: string, options?: { agent?: unknown }) {
       webSocketSpy(url, options);
     }
+    once(_event: string, _handler: () => void) {}
+    terminate() {}
   },
 }));
 
@@ -302,7 +305,7 @@ describe("createDiscordGatewayPlugin", () => {
     });
 
     const registerPromise = registerGatewayClient(plugin);
-    await vi.advanceTimersByTimeAsync(10_000);
+    await vi.advanceTimersByTimeAsync(20_000);
     await registerPromise;
 
     expect(baseRegisterClientSpy).toHaveBeenCalledTimes(1);

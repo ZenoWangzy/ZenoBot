@@ -15,7 +15,7 @@ type ExecApprovalsHandler = {
   stop: () => Promise<void>;
 };
 
-const DISCORD_GATEWAY_READY_TIMEOUT_MS = 15_000;
+const DISCORD_GATEWAY_READY_TIMEOUT_MS = 30_000;
 const DISCORD_GATEWAY_READY_POLL_MS = 250;
 
 type GatewayReadyWaitResult = "ready" | "timeout" | "stopped";
@@ -60,7 +60,7 @@ export async function runDiscordGatewayLifecycle(params: {
   releaseEarlyGatewayErrorGuard?: () => void;
   statusSink?: DiscordMonitorStatusSink;
 }) {
-  const HELLO_TIMEOUT_MS = 30000;
+  const HELLO_TIMEOUT_MS = 60_000;
   const HELLO_CONNECTED_POLL_MS = 250;
   const MAX_CONSECUTIVE_HELLO_STALLS = 3;
   const RECONNECT_STALL_TIMEOUT_MS = 5 * 60_000;

@@ -205,7 +205,6 @@ export function stageBundledPluginRuntime(params = {}) {
     }
     const distPluginDir = path.join(distExtensionsRoot, dirent.name);
     const runtimePluginDir = path.join(runtimeExtensionsRoot, dirent.name);
-    const sourcePluginNodeModulesDir = path.join(sourceExtensionsRoot, dirent.name, "node_modules");
     const distPluginNodeModulesDir = path.join(distPluginDir, "node_modules");
 
     // Ensure node_modules exists in dist (auto-install if needed)
@@ -215,7 +214,7 @@ export function stageBundledPluginRuntime(params = {}) {
 
     linkPluginNodeModules({
       runtimePluginDir,
-      sourcePluginNodeModulesDir,
+      sourcePluginNodeModulesDir: distPluginNodeModulesDir,
       distPluginNodeModulesDir,
     });
   }

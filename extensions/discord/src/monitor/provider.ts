@@ -64,7 +64,12 @@ import { createDiscordAutoPresenceController } from "./auto-presence.js";
 import { resolveDiscordSlashCommandConfig } from "./commands.js";
 import { createExecApprovalButton, DiscordExecApprovalHandler } from "./exec-approvals.js";
 import { attachEarlyGatewayErrorGuard } from "./gateway-error-guard.js";
-import { createDiscordGatewayPlugin } from "./gateway-plugin.js";
+import {
+  createDiscordGatewayPlugin,
+  fetchDiscordGatewayInfoWithTimeout,
+  isTransientGatewayMetadataError,
+  resolveGatewayInfoWithFallback,
+} from "./gateway-plugin.js";
 import {
   DiscordMessageListener,
   DiscordPresenceListener,
@@ -767,8 +772,57 @@ export async function monitorDiscordProvider(opts: MonitorDiscordOpts = {}) {
       }
     }
 
+    // Pre-fetch Discord gateway info before constructing the Carbon Client so that
+    // SafeGatewayPlugin.registerClient() can run synchronously. Without this, Carbon's
+    // constructor calls plugin.registerClient?.(this) without await, causing a race between
+    // the async HTTP fetch (~20s) and the 30s gateway-readiness polling timeout.
+    // Retry up to 2 times on transient errors (network blip, timeout, 5xx) before
+    // falling back to the default gateway URL so a single flaky request doesn't
+    // degrade to the fallback unnecessarily.
+    const MAX_GATEWAY_INFO_PREFETCH_ATTEMPTS = 3;
+    const proxyForFetch = rawDiscordCfg.proxy?.trim();
+    const prefetchedGatewayInfo = await (async () => {
+      let lastError: unknown;
+      for (let attempt = 1; attempt <= MAX_GATEWAY_INFO_PREFETCH_ATTEMPTS; attempt++) {
+        try {
+          let info: import("discord-api-types/v10").APIGatewayBotInfo;
+          if (proxyForFetch) {
+            const { ProxyAgent, fetch: undiciFetch } = await import("undici");
+            const fetchAgent = new ProxyAgent(proxyForFetch);
+            info = await fetchDiscordGatewayInfoWithTimeout({
+              token,
+              fetchImpl: (input, init) => undiciFetch(input, init),
+              fetchInit: { dispatcher: fetchAgent },
+            });
+          } else {
+            info = await fetchDiscordGatewayInfoWithTimeout({
+              token,
+              fetchImpl: (input, init) => fetch(input, init as RequestInit),
+            });
+          }
+          return { info, usedFallback: false };
+        } catch (error) {
+          lastError = error;
+          if (!isTransientGatewayMetadataError(error)) {
+            // Non-transient (e.g. 401 invalid token) — don't retry.
+            break;
+          }
+          if (attempt < MAX_GATEWAY_INFO_PREFETCH_ATTEMPTS) {
+            runtime.log?.(
+              `discord: gateway info prefetch attempt ${attempt} failed transiently, retrying`,
+            );
+          }
+        }
+      }
+      return resolveGatewayInfoWithFallback({ runtime, error: lastError });
+    })();
+
     const clientPlugins: Plugin[] = [
-      createDiscordGatewayPlugin({ discordConfig: discordCfg, runtime }),
+      createDiscordGatewayPlugin({
+        discordConfig: discordCfg,
+        runtime,
+        prefetchedGatewayInfo: prefetchedGatewayInfo.info,
+      }),
     ];
     if (voiceEnabled) {
       clientPlugins.push(new VoicePlugin());
@@ -1035,6 +1089,11 @@ export async function monitorDiscordProvider(opts: MonitorDiscordOpts = {}) {
       threadBindings,
       pendingGatewayErrors: earlyGatewayErrorGuard.pendingErrors,
       releaseEarlyGatewayErrorGuard,
+    }).catch((err: unknown) => {
+      // Log lifecycle errors before they propagate so they appear in the OpenClaw
+      // log stream rather than being swallowed silently by the plugin runner.
+      runtime.error?.(danger(`discord: gateway lifecycle ended with error: ${String(err)}`));
+      throw err;
     });
   } finally {
     deactivateMessageHandler?.();

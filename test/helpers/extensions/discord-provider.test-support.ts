@@ -437,6 +437,15 @@ vi.mock("../../../extensions/discord/src/monitor/exec-approvals.js", () => ({
 
 vi.mock("../../../extensions/discord/src/monitor/gateway-plugin.js", () => ({
   createDiscordGatewayPlugin: () => ({ id: "gateway-plugin" }),
+  fetchDiscordGatewayInfoWithTimeout: vi.fn().mockResolvedValue({
+    url: "wss://gateway.discord.gg/",
+    shards: 1,
+    session_start_limit: { total: 1, remaining: 1, reset_after: 0, max_concurrency: 1 },
+  }),
+  resolveGatewayInfoWithFallback: vi.fn(({ error }: { error: unknown }) => {
+    throw error;
+  }),
+  isTransientGatewayMetadataError: vi.fn(() => false),
 }));
 
 vi.mock("../../../extensions/discord/src/monitor/listeners.js", () => ({

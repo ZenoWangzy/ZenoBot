@@ -9,7 +9,7 @@ import WebSocket from "ws";
 
 const DISCORD_GATEWAY_BOT_URL = "https://discord.com/api/v10/gateway/bot";
 const DEFAULT_DISCORD_GATEWAY_URL = "wss://gateway.discord.gg/";
-const DISCORD_GATEWAY_INFO_TIMEOUT_MS = 10_000;
+const DISCORD_GATEWAY_INFO_TIMEOUT_MS = 20_000;
 
 type DiscordGatewayMetadataResponse = Pick<Response, "ok" | "status" | "text">;
 type DiscordGatewayFetchInit = Record<string, unknown> & {
@@ -228,15 +228,23 @@ function createGatewayPlugin(params: {
   fetchInit?: DiscordGatewayFetchInit;
   wsAgent?: HttpsProxyAgent<string>;
   runtime?: RuntimeEnv;
+  // Pre-fetched gateway info to inject synchronously, eliminating the async
+  // registerClient race with Carbon's unawaited plugin.registerClient?.(this) call.
+  prefetchedGatewayInfo?: APIGatewayBotInfo;
 }): GatewayPlugin {
   class SafeGatewayPlugin extends GatewayPlugin {
     private gatewayInfoUsedFallback = false;
 
     constructor() {
       super(params.options);
+      // Inject pre-fetched info so registerClient() can be synchronous.
+      if (params.prefetchedGatewayInfo) {
+        this.gatewayInfo = params.prefetchedGatewayInfo;
+      }
     }
 
     override async registerClient(client: Parameters<GatewayPlugin["registerClient"]>[0]) {
+      // If gateway info was pre-fetched, skip the async HTTP round-trip entirely.
       if (!this.gatewayInfo || this.gatewayInfoUsedFallback) {
         const resolved = await fetchDiscordGatewayInfoWithTimeout({
           token: client.options.token,
@@ -255,10 +263,23 @@ function createGatewayPlugin(params: {
     }
 
     override createWebSocket(url: string) {
-      if (!params.wsAgent) {
-        return super.createWebSocket(url);
-      }
-      return new WebSocket(url, { agent: params.wsAgent });
+      const ws = params.wsAgent
+        ? new WebSocket(url, { agent: params.wsAgent })
+        : super.createWebSocket(url);
+
+      // ws has no default handshake timeout — a hung proxy would wait forever.
+      // Terminate the socket if it doesn't open within 20s so Carbon can retry.
+      const handshakeTimeout = setTimeout(() => {
+        if (ws.readyState !== WebSocket.OPEN) {
+          params.runtime?.log?.(`discord: WebSocket handshake timed out after 20s, terminating`);
+          ws.terminate();
+        }
+      }, 20_000);
+      handshakeTimeout.unref?.();
+      ws.once("open", () => clearTimeout(handshakeTimeout));
+      ws.once("error", () => clearTimeout(handshakeTimeout));
+
+      return ws;
     }
   }
 
@@ -268,6 +289,7 @@ function createGatewayPlugin(params: {
 export function createDiscordGatewayPlugin(params: {
   discordConfig: DiscordAccountConfig;
   runtime: RuntimeEnv;
+  prefetchedGatewayInfo?: APIGatewayBotInfo;
 }): GatewayPlugin {
   const intents = resolveDiscordGatewayIntents(params.discordConfig?.intents);
   const proxy = params.discordConfig?.proxy?.trim();
@@ -282,10 +304,14 @@ export function createDiscordGatewayPlugin(params: {
       options,
       fetchImpl: (input, init) => fetch(input, init as RequestInit),
       runtime: params.runtime,
+      prefetchedGatewayInfo: params.prefetchedGatewayInfo,
     });
   }
 
   try {
+    // HttpsProxyAgent uses HTTP CONNECT tunneling — the standard method for proxying
+    // WebSocket connections. The WS upgrade and heartbeat frames flow through the tunnel
+    // unchanged, which is what Discord requires.
     const wsAgent = new HttpsProxyAgent<string>(proxy);
     const fetchAgent = new ProxyAgent(proxy);
 
@@ -297,6 +323,7 @@ export function createDiscordGatewayPlugin(params: {
       fetchInit: { dispatcher: fetchAgent },
       wsAgent,
       runtime: params.runtime,
+      prefetchedGatewayInfo: params.prefetchedGatewayInfo,
     });
   } catch (err) {
     params.runtime.error?.(danger(`discord: invalid gateway proxy: ${String(err)}`));
@@ -304,6 +331,13 @@ export function createDiscordGatewayPlugin(params: {
       options,
       fetchImpl: (input, init) => fetch(input, init as RequestInit),
       runtime: params.runtime,
+      prefetchedGatewayInfo: params.prefetchedGatewayInfo,
     });
   }
 }
+
+export {
+  fetchDiscordGatewayInfoWithTimeout,
+  resolveGatewayInfoWithFallback,
+  isTransientGatewayMetadataError,
+};
