@@ -1009,6 +1009,13 @@ export async function startGatewayServer(
         ...(maxRestartsPerHour != null && { maxRestartsPerHour }),
       });
 
+  const onNetworkOnline = () => {
+    log.info?.("network online — resetting channel backoff and triggering health check");
+    channelManager.resetRestartAttemptsAll();
+    void channelHealthMonitor?.forceCheck();
+  };
+  process.on("online", onNetworkOnline);
+
   if (!minimalTestGateway) {
     void cron.start().catch((err) => logCron.error(`failed to start: ${String(err)}`));
   }
@@ -1349,6 +1356,7 @@ export async function startGatewayServer(
       authRateLimiter?.dispose();
       browserAuthRateLimiter.dispose();
       stopModelPricingRefresh();
+      process.off("online", onNetworkOnline);
       channelHealthMonitor?.stop();
       clearSecretsRuntimeSnapshot();
       await close(opts);
