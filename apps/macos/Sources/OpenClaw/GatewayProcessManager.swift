@@ -47,6 +47,7 @@ final class GatewayProcessManager {
     private var lastNetworkPath: NWPath?
     #if DEBUG
     private var testingConnection: GatewayConnection?
+    private var testingSkipControlChannelRefresh = false
     #endif
     private let logger = Logger(subsystem: "ai.openclaw", category: "gateway.process")
 
@@ -368,6 +369,11 @@ final class GatewayProcessManager {
     }
 
     private func refreshControlChannelIfNeeded(reason: String) {
+        #if DEBUG
+        if self.testingSkipControlChannelRefresh {
+            return
+        }
+        #endif
         switch ControlChannel.shared.state {
         case .connected, .connecting:
             return
@@ -461,12 +467,20 @@ extension GatewayProcessManager {
         self.testingConnection = connection
     }
 
+    func setTestingSkipControlChannelRefresh(_ skip: Bool) {
+        self.testingSkipControlChannelRefresh = skip
+    }
+
     func setTestingDesiredActive(_ active: Bool) {
         self.desiredActive = active
     }
 
     func setTestingLastFailureReason(_ reason: String?) {
         self.lastFailureReason = reason
+    }
+
+    func _testAttachExistingGatewayIfAvailable() async -> Bool {
+        await self.attachExistingGatewayIfAvailable()
     }
 }
 #endif

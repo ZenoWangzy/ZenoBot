@@ -13,11 +13,33 @@ function relativeSymlinkTarget(sourcePath, targetPath) {
   return relativeTarget || ".";
 }
 
-function ensureSymlink(targetValue, targetPath, type) {
+function shouldFallbackToCopy(error) {
+  return (
+    process.platform === "win32" &&
+    (error?.code === "EPERM" || error?.code === "EINVAL" || error?.code === "UNKNOWN")
+  );
+}
+
+function copyPathFallback(sourcePath, targetPath) {
+  removePathIfExists(targetPath);
+  const stat = fs.statSync(sourcePath);
+  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+  if (stat.isDirectory()) {
+    fs.cpSync(sourcePath, targetPath, { recursive: true, dereference: true });
+    return;
+  }
+  fs.copyFileSync(sourcePath, targetPath);
+}
+
+function ensureSymlink(targetValue, targetPath, type, fallbackSourcePath) {
   try {
     fs.symlinkSync(targetValue, targetPath, type);
     return;
   } catch (error) {
+    if (fallbackSourcePath && shouldFallbackToCopy(error)) {
+      copyPathFallback(fallbackSourcePath, targetPath);
+      return;
+    }
     if (error?.code !== "EEXIST") {
       throw error;
     }
@@ -32,11 +54,19 @@ function ensureSymlink(targetValue, targetPath, type) {
   }
 
   removePathIfExists(targetPath);
-  fs.symlinkSync(targetValue, targetPath, type);
+  try {
+    fs.symlinkSync(targetValue, targetPath, type);
+  } catch (error) {
+    if (fallbackSourcePath && shouldFallbackToCopy(error)) {
+      copyPathFallback(fallbackSourcePath, targetPath);
+      return;
+    }
+    throw error;
+  }
 }
 
 function symlinkPath(sourcePath, targetPath, type) {
-  ensureSymlink(relativeSymlinkTarget(sourcePath, targetPath), targetPath, type);
+  ensureSymlink(relativeSymlinkTarget(sourcePath, targetPath), targetPath, type, sourcePath);
 }
 
 function shouldWrapRuntimeJsFile(sourcePath) {
@@ -86,7 +116,7 @@ function stagePluginRuntimeOverlay(sourceDir, targetDir) {
     }
 
     if (dirent.isSymbolicLink()) {
-      ensureSymlink(fs.readlinkSync(sourcePath), targetPath);
+      ensureSymlink(fs.readlinkSync(sourcePath), targetPath, undefined, sourcePath);
       continue;
     }
 
@@ -110,7 +140,6 @@ function stagePluginRuntimeOverlay(sourceDir, targetDir) {
 
 function linkPluginNodeModules(params) {
   const runtimeNodeModulesDir = path.join(params.runtimePluginDir, "node_modules");
-  const sourcePluginNodeModulesDir = params.sourcePluginNodeModulesDir;
   const distPluginNodeModulesDir = params.distPluginNodeModulesDir;
 
   removePathIfExists(runtimeNodeModulesDir);
@@ -121,13 +150,12 @@ function linkPluginNodeModules(params) {
     fs.symlinkSync(distPluginNodeModulesDir, runtimeNodeModulesDir, symlinkType());
     return;
   }
-
-  // Fall back to source node_modules
-  if (!fs.existsSync(sourcePluginNodeModulesDir)) {
-    return;
-  }
-
-  ensureSymlink(params.sourcePluginNodeModulesDir, runtimeNodeModulesDir, symlinkType());
+  ensureSymlink(
+    params.sourcePluginNodeModulesDir,
+    runtimeNodeModulesDir,
+    symlinkType(),
+    params.sourcePluginNodeModulesDir,
+  );
 }
 
 function hasDependencies(pluginDir) {

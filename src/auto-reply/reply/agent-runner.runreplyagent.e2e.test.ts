@@ -24,6 +24,7 @@ type AgentRunParams = {
   onBlockReply?: (payload: { text?: string; mediaUrls?: string[] }) => Promise<void> | void;
   onToolResult?: (payload: ReplyPayload) => Promise<void> | void;
   onAgentEvent?: (evt: { stream: string; data: Record<string, unknown> }) => void;
+  silentExpected?: boolean;
 };
 
 type EmbeddedRunParams = {
@@ -32,6 +33,7 @@ type EmbeddedRunParams = {
   memoryFlushWritePath?: string;
   sessionId?: string;
   sessionFile?: string;
+  silentExpected?: boolean;
   bootstrapPromptWarningSignaturesSeen?: string[];
   bootstrapPromptWarningSignature?: string;
   onAgentEvent?: (evt: {
@@ -41,8 +43,8 @@ type EmbeddedRunParams = {
 };
 
 const state = vi.hoisted(() => ({
+  compactEmbeddedPiSessionMock: vi.fn(),
   runEmbeddedPiAgentMock: vi.fn(),
-  runCliAgentMock: vi.fn(),
 }));
 
 let modelFallbackModule: typeof import("../../agents/model-fallback.js");
@@ -74,15 +76,16 @@ vi.mock("../../agents/model-fallback.js", () => ({
     model,
     attempts: [],
   }),
+  isFallbackSummaryError: (err: unknown) =>
+    err instanceof Error &&
+    err.name === "FallbackSummaryError" &&
+    Array.isArray((err as { attempts?: unknown[] }).attempts),
 }));
 
 vi.mock("../../agents/pi-embedded.js", () => ({
+  compactEmbeddedPiSession: (params: unknown) => state.compactEmbeddedPiSessionMock(params),
   queueEmbeddedPiMessage: vi.fn().mockReturnValue(false),
   runEmbeddedPiAgent: (params: unknown) => state.runEmbeddedPiAgentMock(params),
-}));
-
-vi.mock("../../agents/cli-runner.js", () => ({
-  runCliAgent: (params: unknown) => state.runCliAgentMock(params),
 }));
 
 vi.mock("./queue.js", () => ({
@@ -99,8 +102,8 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
+  state.compactEmbeddedPiSessionMock.mockClear();
   state.runEmbeddedPiAgentMock.mockClear();
-  state.runCliAgentMock.mockClear();
   vi.mocked(enqueueFollowupRun).mockClear();
   vi.mocked(refreshQueuedFollowupSession).mockClear();
   vi.mocked(scheduleFollowupDrain).mockClear();
@@ -156,6 +159,7 @@ function createMinimalRun(params?: {
       },
       timeoutMs: 1_000,
       blockReplyBreak: "message_end",
+      skipProviderRuntimeHints: process.env.OPENCLAW_TEST_FAST === "1",
       ...params?.runOverrides,
     },
   } as unknown as FollowupRun;
@@ -182,7 +186,7 @@ function createMinimalRun(params?: {
         sessionKey,
         storePath: params?.storePath,
         sessionCtx,
-        defaultModel: "anthropic/claude-opus-4-5",
+        defaultModel: "anthropic/claude-opus-4-6",
         resolvedVerboseLevel: params?.resolvedVerboseLevel ?? "off",
         isNewSession: false,
         blockStreamingEnabled: params?.blockStreamingEnabled ?? false,
@@ -288,7 +292,7 @@ async function runReplyAgentWithBase(params: {
     sessionStore: { [params.sessionKey]: params.sessionEntry } as Record<string, SessionEntry>,
     sessionKey: params.sessionKey,
     storePath: params.storePath,
-    defaultModel: "anthropic/claude-opus-4-5",
+    defaultModel: "anthropic/claude-opus-4-6",
     agentCfgContextTokens: 100_000,
     resolvedVerboseLevel: "off",
     isNewSession: false,
@@ -489,6 +493,56 @@ describe("runReplyAgent typing (heartbeat)", () => {
     }
   });
 
+  it("suppresses narrated silent-turn partials, block replies, and final payloads", async () => {
+    const onPartialReply = vi.fn();
+    const onBlockReply = vi.fn();
+    const onReasoningStream = vi.fn();
+    state.runEmbeddedPiAgentMock.mockImplementationOnce(async (params: AgentRunParams) => {
+      expect(params.silentExpected).toBe(true);
+      await params.onReasoningStream?.({ text: "Reasoning:\nI am trying to send NO_REPLY now." });
+      await params.onPartialReply?.({ text: "I am trying to send NO_REPLY now." });
+      await params.onBlockReply?.({ text: "I am trying to send NO_REPLY now." });
+      return { payloads: [{ text: "I am trying to send NO_REPLY now." }], meta: {} };
+    });
+
+    const { run } = createMinimalRun({
+      opts: { isHeartbeat: false, onPartialReply, onBlockReply, onReasoningStream },
+      blockStreamingEnabled: true,
+      runOverrides: { silentExpected: true },
+    });
+    const res = await run();
+
+    expect(onReasoningStream).not.toHaveBeenCalled();
+    expect(onPartialReply).not.toHaveBeenCalled();
+    expect(onBlockReply).not.toHaveBeenCalled();
+    expect(res).toBeUndefined();
+  });
+
+  it("suppresses bare NO_REPLY silent-turn payloads", async () => {
+    const onPartialReply = vi.fn();
+    const onBlockReply = vi.fn();
+    const onReasoningStream = vi.fn();
+    state.runEmbeddedPiAgentMock.mockImplementationOnce(async (params: AgentRunParams) => {
+      expect(params.silentExpected).toBe(true);
+      await params.onReasoningStream?.({ text: "Reasoning:\nNO_REPLY" });
+      await params.onPartialReply?.({ text: "NO_REPLY" });
+      await params.onBlockReply?.({ text: "NO_REPLY" });
+      return { payloads: [{ text: "NO_REPLY" }], meta: { finalAssistantText: "NO_REPLY" } };
+    });
+
+    const { run } = createMinimalRun({
+      opts: { isHeartbeat: false, onPartialReply, onBlockReply, onReasoningStream },
+      blockStreamingEnabled: true,
+      runOverrides: { silentExpected: true },
+    });
+    const res = await run();
+
+    expect(onReasoningStream).not.toHaveBeenCalled();
+    expect(onPartialReply).not.toHaveBeenCalled();
+    expect(onBlockReply).not.toHaveBeenCalled();
+    expect(res).toBeUndefined();
+  });
+
   it("does not start typing on assistant message start without prior text in message mode", async () => {
     state.runEmbeddedPiAgentMock.mockImplementationOnce(async (params: AgentRunParams) => {
       await params.onAssistantMessageStart?.();
@@ -656,6 +710,29 @@ describe("runReplyAgent typing (heartbeat)", () => {
     });
   });
 
+  it("forwards media-only tool results without typing text", async () => {
+    const onToolResult = vi.fn();
+    state.runEmbeddedPiAgentMock.mockImplementationOnce(async (params: AgentRunParams) => {
+      await params.onToolResult?.({
+        mediaUrls: ["/tmp/generated.png"],
+      });
+      return { payloads: [{ text: "final" }], meta: {} };
+    });
+
+    const { run, typing } = createMinimalRun({
+      typingMode: "message",
+      opts: { onToolResult },
+    });
+    await run();
+
+    expect(typing.startTypingOnText).not.toHaveBeenCalled();
+    expect(onToolResult).toHaveBeenCalledTimes(1);
+    expect(onToolResult.mock.calls[0]?.[0]).toMatchObject({
+      mediaUrls: ["/tmp/generated.png"],
+    });
+    expect(onToolResult.mock.calls[0]?.[0]?.text).toBeUndefined();
+  });
+
   it("retries transient HTTP failures once with timer-driven backoff", async () => {
     vi.useFakeTimers();
     let calls = 0;
@@ -820,7 +897,7 @@ describe("runReplyAgent typing (heartbeat)", () => {
           attempts: [
             {
               provider: "fireworks",
-              model: "fireworks/minimax-m2p5",
+              model: "fireworks/accounts/fireworks/routers/kimi-k2p5-turbo",
               error: "Provider fireworks is in cooldown (all profiles unavailable)",
               reason: "rate_limit",
             },
@@ -881,7 +958,7 @@ describe("runReplyAgent typing (heartbeat)", () => {
           attempts: [
             {
               provider: "fireworks",
-              model: "fireworks/minimax-m2p5",
+              model: "fireworks/accounts/fireworks/routers/kimi-k2p5-turbo",
               error: "Provider fireworks is in cooldown (all profiles unavailable)",
               reason: "rate_limit",
             },
@@ -955,7 +1032,7 @@ describe("runReplyAgent typing (heartbeat)", () => {
             attempts: [
               {
                 provider: "fireworks",
-                model: "fireworks/minimax-m2p5",
+                model: "fireworks/accounts/fireworks/routers/kimi-k2p5-turbo",
                 error: "Provider fireworks is in cooldown (all profiles unavailable)",
                 reason: "rate_limit",
               },
@@ -1018,7 +1095,7 @@ describe("runReplyAgent typing (heartbeat)", () => {
               attempts: [
                 {
                   provider: "fireworks",
-                  model: "fireworks/minimax-m2p5",
+                  model: "fireworks/accounts/fireworks/routers/kimi-k2p5-turbo",
                   error: "Provider fireworks is in cooldown (all profiles unavailable)",
                   reason: "rate_limit",
                 },
@@ -1098,7 +1175,7 @@ describe("runReplyAgent typing (heartbeat)", () => {
               attempts: [
                 {
                   provider: "fireworks",
-                  model: "fireworks/minimax-m2p5",
+                  model: "fireworks/accounts/fireworks/routers/kimi-k2p5-turbo",
                   error: "Provider fireworks is in cooldown (all profiles unavailable)",
                   reason: "rate_limit",
                 },
@@ -1220,7 +1297,7 @@ describe("runReplyAgent typing (heartbeat)", () => {
         sessionId,
         updatedAt: Date.now(),
         sessionFile: transcriptPath,
-        fallbackNoticeSelectedModel: "fireworks/minimax-m2p5",
+        fallbackNoticeSelectedModel: "fireworks/accounts/fireworks/routers/kimi-k2p5-turbo",
         fallbackNoticeActiveModel: "deepinfra/moonshotai/Kimi-K2.5",
         fallbackNoticeReason: "rate limit",
       };
@@ -1677,11 +1754,6 @@ describe("runReplyAgent memory flush", () => {
         payloads: [{ text: "ok" }],
         meta: { agentMeta: { usage: { input: 1, output: 1 } } },
       }));
-      state.runCliAgentMock.mockResolvedValue({
-        payloads: [{ text: "ok" }],
-        meta: { agentMeta: { usage: { input: 1, output: 1 } } },
-      });
-
       const baseRun = createBaseRun({
         storePath,
         sessionEntry,
@@ -1696,10 +1768,114 @@ describe("runReplyAgent memory flush", () => {
         commandBody: "hello",
       });
 
-      expect(state.runCliAgentMock).toHaveBeenCalledTimes(1);
-      const call = state.runCliAgentMock.mock.calls[0]?.[0] as { prompt?: string } | undefined;
+      expect(state.runEmbeddedPiAgentMock).toHaveBeenCalledTimes(1);
+      const call = state.runEmbeddedPiAgentMock.mock.calls[0]?.[0] as
+        | { prompt?: string }
+        | undefined;
       expect(call?.prompt).toBe("hello");
-      expect(state.runEmbeddedPiAgentMock).not.toHaveBeenCalled();
+    });
+  });
+
+  it("runs preflight compaction when transcript-estimated tokens cross the threshold", async () => {
+    await withTempStore(async (storePath) => {
+      const sessionKey = "main";
+      const sessionFile = "session-relative.jsonl";
+      const workspaceDir = path.dirname(storePath);
+      const transcriptPath = path.join(path.dirname(storePath), sessionFile);
+      await fs.mkdir(path.dirname(transcriptPath), { recursive: true });
+      await fs.writeFile(
+        transcriptPath,
+        `${JSON.stringify({
+          message: {
+            role: "user",
+            content: "x".repeat(320_000),
+            timestamp: Date.now(),
+          },
+        })}\n`,
+        "utf-8",
+      );
+      await fs.writeFile(
+        path.join(workspaceDir, "AGENTS.md"),
+        [
+          "## Session Startup",
+          "Read AGENTS.md before replying.",
+          "",
+          "## Red Lines",
+          "Never skip safety checks.",
+        ].join("\n"),
+        "utf-8",
+      );
+
+      const sessionEntry: SessionEntry = {
+        sessionId: "session",
+        updatedAt: Date.now(),
+        sessionFile,
+        totalTokens: 10,
+        totalTokensFresh: false,
+        compactionCount: 1,
+      };
+
+      await seedSessionStore({ storePath, sessionKey, entry: sessionEntry });
+
+      state.compactEmbeddedPiSessionMock.mockResolvedValueOnce({
+        ok: true,
+        compacted: true,
+        result: {
+          summary: "compacted",
+          firstKeptEntryId: "first-kept",
+          tokensBefore: 90_000,
+          tokensAfter: 8_000,
+        },
+      });
+      const calls: Array<{ prompt?: string; extraSystemPrompt?: string }> = [];
+      state.runEmbeddedPiAgentMock.mockImplementation(async (params: EmbeddedRunParams) => {
+        calls.push({
+          prompt: params.prompt,
+          extraSystemPrompt: params.extraSystemPrompt,
+        });
+        return {
+          payloads: [{ text: "ok" }],
+          meta: { agentMeta: { usage: { input: 1, output: 1 } } },
+        };
+      });
+
+      const baseRun = createBaseRun({
+        storePath,
+        sessionEntry,
+        runOverrides: { sessionFile, workspaceDir },
+      });
+
+      await runReplyAgentWithBase({
+        baseRun,
+        storePath,
+        sessionKey,
+        sessionEntry,
+        commandBody: "hello",
+      });
+
+      expect(state.compactEmbeddedPiSessionMock).toHaveBeenCalledOnce();
+      const compactionCall = state.compactEmbeddedPiSessionMock.mock.calls[0]?.[0] as
+        | {
+            sessionId?: string;
+            sessionKey?: string;
+            trigger?: string;
+            currentTokenCount?: number;
+            sessionFile?: string;
+          }
+        | undefined;
+      expect(compactionCall?.sessionId).toBe("session");
+      expect(compactionCall?.sessionKey).toBe(sessionKey);
+      expect(compactionCall?.trigger).toBe("budget");
+      expect(compactionCall?.currentTokenCount).toEqual(expect.any(Number));
+      expect(await normalizeComparablePath(compactionCall?.sessionFile ?? "")).toBe(
+        await normalizeComparablePath(transcriptPath),
+      );
+      expect(calls.map((call) => call.prompt)).toEqual(["hello"]);
+      expect(calls[0]?.extraSystemPrompt).toContain("Post-compaction context refresh");
+      expect(calls[0]?.extraSystemPrompt).toContain("Read AGENTS.md before replying.");
+
+      const stored = JSON.parse(await fs.readFile(storePath, "utf-8"));
+      expect(stored[sessionKey].compactionCount).toBe(2);
     });
   });
 
@@ -1764,6 +1940,7 @@ describe("runReplyAgent memory flush", () => {
       expect(flushCall?.extraSystemPrompt).toContain("NO_REPLY");
       expect(flushCall?.extraSystemPrompt).toContain("memory/YYYY-MM-DD.md");
       expect(flushCall?.extraSystemPrompt).toContain("MEMORY.md");
+      expect(flushCall?.silentExpected).toBe(true);
       expect(calls[1]?.prompt).toBe("hello");
     });
   });
