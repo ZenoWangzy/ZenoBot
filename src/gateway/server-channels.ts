@@ -130,6 +130,7 @@ export type ChannelManager = {
   markChannelLoggedOut: (channelId: ChannelId, cleared: boolean, accountId?: string) => void;
   isManuallyStopped: (channelId: ChannelId, accountId: string) => boolean;
   resetRestartAttempts: (channelId: ChannelId, accountId: string) => void;
+  resetRestartAttemptsAll: () => void;
   isHealthMonitorEnabled: (channelId: ChannelId, accountId: string) => boolean;
 };
 
@@ -574,6 +575,10 @@ export function createChannelManager(opts: ChannelManagerOptions): ChannelManage
     restartAttempts.delete(restartKey(channelId, accountId));
   };
 
+  const resetRestartAttemptsAll_ = (): void => {
+    restartAttempts.clear();
+  };
+
   return {
     getRuntimeSnapshot,
     startChannels,
@@ -582,6 +587,7 @@ export function createChannelManager(opts: ChannelManagerOptions): ChannelManage
     markChannelLoggedOut,
     isManuallyStopped: isManuallyStopped_,
     resetRestartAttempts: resetRestartAttempts_,
+    resetRestartAttemptsAll: resetRestartAttemptsAll_,
     isHealthMonitorEnabled,
   };
 }

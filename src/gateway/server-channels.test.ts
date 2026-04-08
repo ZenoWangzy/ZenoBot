@@ -409,4 +409,33 @@ describe("server-channels auto restart", () => {
 
     expect(manager.isHealthMonitorEnabled("discord", "")).toBe(true);
   });
+
+  it("resetRestartAttemptsAll() clears all restart attempt counters", async () => {
+    let failStart = true;
+    const plugin = createTestPlugin({
+      startAccount: async () => {
+        if (failStart) {
+          throw new Error("simulated failure");
+        }
+      },
+    });
+    installTestRegistry(plugin);
+
+    const manager = createManager();
+
+    // Trigger a start to increment the attempt counter (it will fail)
+    try {
+      await manager.startChannel(plugin.id);
+    } catch {
+      // expected
+    }
+
+    // resetRestartAttemptsAll should exist and be a function
+    expect(typeof manager.resetRestartAttemptsAll).toBe("function");
+    manager.resetRestartAttemptsAll();
+
+    // After reset, starting again should work without throttle from prior attempts
+    failStart = false;
+    await expect(manager.startChannel(plugin.id)).resolves.not.toThrow();
+  });
 });
