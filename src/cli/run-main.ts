@@ -115,13 +115,21 @@ export async function runCli(argv: string[] = process.argv) {
 
     const { buildProgram } = await import("./program.js");
     const program = buildProgram();
-    const { installUnhandledRejectionHandler } = await import("../infra/unhandled-rejections.js");
+    const { installUnhandledRejectionHandler, isTransientNetworkError } =
+      await import("../infra/unhandled-rejections.js");
 
     // Global error handlers to prevent silent crashes from unhandled rejections/exceptions.
     // These log the error and exit gracefully instead of crashing without trace.
     installUnhandledRejectionHandler();
 
     process.on("uncaughtException", (error) => {
+      if (isTransientNetworkError(error)) {
+        console.warn(
+          "[openclaw] Suppressed transient network exception:",
+          formatUncaughtError(error),
+        );
+        return;
+      }
       console.error("[openclaw] Uncaught exception:", formatUncaughtError(error));
       process.exit(1);
     });

@@ -3,7 +3,10 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { formatUncaughtError } from "./infra/errors.js";
 import { isMainModule } from "./infra/is-main.js";
-import { installUnhandledRejectionHandler } from "./infra/unhandled-rejections.js";
+import {
+  installUnhandledRejectionHandler,
+  isTransientNetworkError,
+} from "./infra/unhandled-rejections.js";
 
 type LegacyCliDeps = {
   installGaxiosFetchCompat: () => Promise<void>;
@@ -92,6 +95,13 @@ if (isMain) {
   installUnhandledRejectionHandler();
 
   process.on("uncaughtException", (error) => {
+    if (isTransientNetworkError(error)) {
+      console.warn(
+        "[openclaw] Suppressed transient network exception:",
+        formatUncaughtError(error),
+      );
+      return;
+    }
     console.error("[openclaw] Uncaught exception:", formatUncaughtError(error));
     process.exit(1);
   });
