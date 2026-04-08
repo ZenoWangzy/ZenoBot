@@ -46,6 +46,7 @@ export type ChannelHealthMonitorDeps = {
 
 export type ChannelHealthMonitor = {
   stop: () => void;
+  forceCheck: () => Promise<void>;
 };
 
 type RestartRecord = {
@@ -199,5 +200,5 @@ export function startChannelHealthMonitor(deps: ChannelHealthMonitorDeps): Chann
     );
   }
 
-  return { stop };
+  return { stop, forceCheck: runCheck };
 }

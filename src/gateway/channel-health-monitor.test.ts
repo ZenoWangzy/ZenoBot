@@ -574,4 +574,36 @@ describe("channel-health-monitor", () => {
       monitor.stop();
     });
   });
+
+  it("forceCheck() triggers an immediate health check outside the interval", async () => {
+    vi.useFakeTimers();
+    const stopFn = vi.fn();
+    const startFn = vi.fn(async () => {});
+    const manager = createSnapshotManager(
+      {
+        discord: {
+          default: {
+            running: false,
+            enabled: true,
+            configured: true,
+          },
+        },
+      },
+      { stopChannel: stopFn, startChannel: startFn },
+    );
+    const monitor = startDefaultMonitor(manager, { startupGraceMs: 0 });
+
+    // Interval hasn't fired yet — no restart should have happened
+    expect(startFn).not.toHaveBeenCalled();
+
+    // forceCheck() should exist on the returned monitor
+    expect(typeof monitor.forceCheck).toBe("function");
+
+    // Calling forceCheck should trigger a restart without advancing timers
+    await monitor.forceCheck();
+    expect(startFn).toHaveBeenCalledTimes(1);
+
+    monitor.stop();
+    vi.useRealTimers();
+  });
 });
