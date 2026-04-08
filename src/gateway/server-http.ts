@@ -753,6 +753,8 @@ export function createGatewayHttpServer(opts: {
   rateLimiter?: AuthRateLimiter;
   getReadiness?: ReadinessChecker;
   tlsOptions?: TlsOptions;
+  /** Called when POST /sys/network-online is received from localhost. */
+  onNetworkOnline?: () => void;
 }): HttpServer {
   const {
     canvasHost,
@@ -771,6 +773,7 @@ export function createGatewayHttpServer(opts: {
     resolvedAuth,
     rateLimiter,
     getReadiness,
+    onNetworkOnline,
   } = opts;
   const httpServer: HttpServer = opts.tlsOptions
     ? createHttpsServer(opts.tlsOptions, (req, res) => {
@@ -942,6 +945,34 @@ export function createGatewayHttpServer(opts: {
               config: configSnapshot,
               root: controlUiRoot,
             }),
+        });
+      }
+
+      if (onNetworkOnline) {
+        requestStages.push({
+          name: "sys-network-online",
+          run: () => {
+            if (requestPath !== "/sys/network-online") {
+              return false;
+            }
+            if (req.method !== "POST") {
+              res.statusCode = 405;
+              res.setHeader("Allow", "POST");
+              res.setHeader("Content-Type", "text/plain; charset=utf-8");
+              res.end("Method Not Allowed");
+              return true;
+            }
+            // Only accept calls from the local process (macOS app → gateway over loopback).
+            if (!isLocalDirectRequest(req)) {
+              res.statusCode = 403;
+              res.setHeader("Content-Type", "text/plain; charset=utf-8");
+              res.end("Forbidden");
+              return true;
+            }
+            onNetworkOnline();
+            sendJson(res, 200, { ok: true });
+            return true;
+          },
         });
       }
 

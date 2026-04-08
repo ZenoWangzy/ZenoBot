@@ -73,6 +73,7 @@ export async function createGatewayRuntimeState(params: {
   logHooks: ReturnType<typeof createSubsystemLogger>;
   logPlugins: ReturnType<typeof createSubsystemLogger>;
   getReadiness?: ReadinessChecker;
+  onNetworkOnline?: () => void;
 }): Promise<{
   canvasHost: CanvasHostHandler | null;
   releasePluginRouteRegistry: () => void;
@@ -178,6 +179,7 @@ export async function createGatewayRuntimeState(params: {
         rateLimiter: params.rateLimiter,
         getReadiness: params.getReadiness,
         tlsOptions: params.gatewayTls?.enabled ? params.gatewayTls.tlsOptions : undefined,
+        onNetworkOnline: params.onNetworkOnline,
       });
       try {
         await listenGatewayHttpServer({

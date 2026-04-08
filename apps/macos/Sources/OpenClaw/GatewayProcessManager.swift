@@ -1,4 +1,5 @@
 import Foundation
+import Network
 import Observation
 
 @MainActor
@@ -42,6 +43,8 @@ final class GatewayProcessManager {
     private var environmentRefreshTask: Task<Void, Never>?
     private var lastEnvironmentRefresh: Date?
     private var logRefreshTask: Task<Void, Never>?
+    private var networkMonitor: NWPathMonitor?
+    private var lastNetworkPath: NWPath?
     #if DEBUG
     private var testingConnection: GatewayConnection?
     #endif
@@ -71,6 +74,7 @@ final class GatewayProcessManager {
         self.desiredActive = active
         self.refreshEnvironmentStatus()
         if active {
+            self.startNetworkMonitor()
             self.startIfNeeded()
         } else {
             self.stop()
@@ -396,6 +400,42 @@ final class GatewayProcessManager {
         self.log = ""
         try? FileManager().removeItem(atPath: GatewayLaunchAgentManager.launchdGatewayLogPath())
         self.logger.debug("gateway log cleared")
+    }
+
+    /// Start monitoring network path changes to detect sleep/wake and reconnect the gateway.
+    func startNetworkMonitor() {
+        guard networkMonitor == nil else { return }
+        let monitor = NWPathMonitor()
+        self.networkMonitor = monitor
+        monitor.pathUpdateHandler = { [weak self] path in
+            guard let self else { return }
+            let previous = self.lastNetworkPath
+            self.lastNetworkPath = path
+            // Fire on transition from non-satisfied → satisfied (network restored).
+            if path.status == .satisfied && previous?.status != .satisfied && previous != nil {
+                self.logger.info("network path restored — notifying gateway")
+                Task { @MainActor in
+                    await self.notifyGatewayNetworkOnline()
+                }
+            }
+        }
+        monitor.start(queue: DispatchQueue(label: "ai.openclaw.gateway.network-monitor"))
+    }
+
+    private func notifyGatewayNetworkOnline() async {
+        guard desiredActive else { return }
+        let port = GatewayEnvironment.gatewayPort()
+        guard let url = URL(string: "http://127.0.0.1:\(port)/sys/network-online") else { return }
+        var request = URLRequest(url: url, timeoutInterval: 5)
+        request.httpMethod = "POST"
+        do {
+            let (_, response) = try await URLSession.shared.data(for: request)
+            let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+            self.logger.info("notified gateway network-online status=\(code)")
+        } catch {
+            // Non-fatal: gateway may not be running yet or endpoint unavailable.
+            self.logger.debug("gateway network-online notify failed: \(error.localizedDescription)")
+        }
     }
 
     func setProjectRoot(path: String) {
