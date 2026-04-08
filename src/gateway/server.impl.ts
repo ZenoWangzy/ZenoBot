@@ -674,6 +674,9 @@ export async function startGatewayServer(
     channelManager,
     startedAt: serverStartedAt,
   });
+  // Mutable ref so the HTTP handler can forward to onNetworkOnline before
+  // channelHealthMonitor is created. The real implementation is assigned below.
+  let networkOnlineHandlerRef: () => void = () => {};
   const {
     canvasHost,
     releasePluginRouteRegistry,
@@ -721,6 +724,8 @@ export async function startGatewayServer(
     logHooks,
     logPlugins,
     getReadiness,
+    // Forward-ref: the real handler is installed after channelHealthMonitor is created below.
+    onNetworkOnline: () => networkOnlineHandlerRef(),
   });
   let bonjourStop: (() => Promise<void>) | null = null;
   const nodeRegistry = new NodeRegistry();
@@ -1012,8 +1017,10 @@ export async function startGatewayServer(
   const onNetworkOnline = () => {
     log.info?.("network online — resetting channel backoff and triggering health check");
     channelManager.resetRestartAttemptsAll();
-    void channelHealthMonitor?.forceCheck();
+    void channelHealthMonitor?.forceCheck({ bypassCooldown: true });
   };
+  // Wire the forward-ref so HTTP POST /sys/network-online calls the real handler.
+  networkOnlineHandlerRef = onNetworkOnline;
   process.on("online", onNetworkOnline);
 
   if (!minimalTestGateway) {

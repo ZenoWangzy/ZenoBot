@@ -46,7 +46,7 @@ export type ChannelHealthMonitorDeps = {
 
 export type ChannelHealthMonitor = {
   stop: () => void;
-  forceCheck: () => Promise<void>;
+  forceCheck: (opts?: { bypassCooldown?: boolean }) => Promise<void>;
 };
 
 type RestartRecord = {
@@ -97,7 +97,7 @@ export function startChannelHealthMonitor(deps: ChannelHealthMonitorDeps): Chann
     record.restartsThisHour = record.restartsThisHour.filter((r) => now - r.at < ONE_HOUR_MS);
   }
 
-  async function runCheck() {
+  async function runCheck(opts?: { bypassCooldown?: boolean }) {
     if (stopped || checkInFlight) {
       return;
     }
@@ -142,7 +142,7 @@ export function startChannelHealthMonitor(deps: ChannelHealthMonitorDeps): Chann
             restartsThisHour: [],
           };
 
-          if (now - record.lastRestartAt <= cooldownMs) {
+          if (!opts?.bypassCooldown && now - record.lastRestartAt <= cooldownMs) {
             continue;
           }
 
@@ -200,5 +200,5 @@ export function startChannelHealthMonitor(deps: ChannelHealthMonitorDeps): Chann
     );
   }
 
-  return { stop, forceCheck: runCheck };
+  return { stop, forceCheck: (opts?: { bypassCooldown?: boolean }) => runCheck(opts) };
 }
