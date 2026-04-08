@@ -593,10 +593,6 @@
       "types": "./dist/plugin-sdk/directory-runtime.d.ts",
       "default": "./dist/plugin-sdk/directory-runtime.js"
     },
-    "./plugin-sdk/discord-core": {
-      "types": "./dist/plugin-sdk/discord-core.d.ts",
-      "default": "./dist/plugin-sdk/discord-core.js"
-    },
     "./plugin-sdk/feishu": {
       "types": "./dist/plugin-sdk/feishu.d.ts",
       "default": "./dist/plugin-sdk/feishu.js"
@@ -616,10 +612,6 @@
     "./plugin-sdk/image-generation": {
       "types": "./dist/plugin-sdk/image-generation.d.ts",
       "default": "./dist/plugin-sdk/image-generation.js"
-    },
-    "./plugin-sdk/imessage": {
-      "types": "./dist/plugin-sdk/imessage.d.ts",
-      "default": "./dist/plugin-sdk/imessage.js"
     },
     "./plugin-sdk/image-generation-runtime": {
       "types": "./dist/plugin-sdk/image-generation-runtime.d.ts",
@@ -849,10 +841,6 @@
       "types": "./dist/plugin-sdk/nostr.d.ts",
       "default": "./dist/plugin-sdk/nostr.js"
     },
-    "./plugin-sdk/ollama-setup": {
-      "types": "./dist/plugin-sdk/ollama-setup.d.ts",
-      "default": "./dist/plugin-sdk/ollama-setup.js"
-    },
     "./plugin-sdk/param-readers": {
       "types": "./dist/plugin-sdk/param-readers.d.ts",
       "default": "./dist/plugin-sdk/param-readers.js"
@@ -884,10 +872,6 @@
     "./plugin-sdk/provider-auth-login": {
       "types": "./dist/plugin-sdk/provider-auth-login.d.ts",
       "default": "./dist/plugin-sdk/provider-auth-login.js"
-    },
-    "./plugin-sdk/provider-catalog": {
-      "types": "./dist/plugin-sdk/provider-catalog.d.ts",
-      "default": "./dist/plugin-sdk/provider-catalog.js"
     },
     "./plugin-sdk/provider-catalog-shared": {
       "types": "./dist/plugin-sdk/provider-catalog-shared.d.ts",
@@ -1072,14 +1056,6 @@
     "./plugin-sdk/webhook-path": {
       "types": "./dist/plugin-sdk/webhook-path.d.ts",
       "default": "./dist/plugin-sdk/webhook-path.js"
-    },
-    "./plugin-sdk/whatsapp-core": {
-      "types": "./dist/plugin-sdk/whatsapp-core.d.ts",
-      "default": "./dist/plugin-sdk/whatsapp-core.js"
-    },
-    "./plugin-sdk/whatsapp-shared": {
-      "types": "./dist/plugin-sdk/whatsapp-shared.d.ts",
-      "default": "./dist/plugin-sdk/whatsapp-shared.js"
     },
     "./plugin-sdk/zalo": {
       "types": "./dist/plugin-sdk/zalo.d.ts",
