@@ -19,7 +19,7 @@ export type MemoryIndexMeta = {
 export function resolveConfiguredSourcesForMeta(sources: Iterable<MemorySource>): MemorySource[] {
   const normalized = Array.from(sources)
     .filter((source): source is MemorySource => source === "memory" || source === "sessions")
-    .toSorted();
+    .toSorted((a, b) => a.localeCompare(b));
   return normalized.length > 0 ? normalized : ["memory"];
 }
 
@@ -34,7 +34,7 @@ export function normalizeMetaSources(meta: MemoryIndexMeta): MemorySource[] {
         (source): source is MemorySource => source === "memory" || source === "sessions",
       ),
     ),
-  ).toSorted();
+  ).toSorted((a, b) => a.localeCompare(b));
   return normalized.length > 0 ? normalized : ["memory"];
 }
 
@@ -60,13 +60,13 @@ export function resolveConfiguredScopeHash(params: {
 }): string {
   const extraPaths = normalizeExtraMemoryPaths(params.workspaceDir, params.extraPaths)
     .map((value) => value.replace(/\\/g, "/"))
-    .toSorted();
+    .toSorted((a, b) => a.localeCompare(b));
   return hashText(
     JSON.stringify({
       extraPaths,
       multimodal: {
         enabled: params.multimodal.enabled,
-        modalities: [...params.multimodal.modalities].toSorted(),
+        modalities: [...params.multimodal.modalities].toSorted((a, b) => a.localeCompare(b)),
         maxFileBytes: params.multimodal.maxFileBytes,
       },
     }),
