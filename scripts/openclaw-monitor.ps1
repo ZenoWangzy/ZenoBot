@@ -227,7 +227,13 @@ function Invoke-CommandCapture {
         [string[]]$Arguments
     )
 
-    $output = & $FilePath @Arguments 2>&1 | Out-String
+    $prevEAP = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        $output = & $FilePath @Arguments 2>&1 | Out-String
+    } finally {
+        $ErrorActionPreference = $prevEAP
+    }
     return @{
         exitCode = $LASTEXITCODE
         output = $output.Trim()
@@ -407,6 +413,18 @@ function Test-DiscordHealthy {
         return $false
     }
     return $ProbeOutput -match "(?im)^\s*-\s*Discord[^\r\n]*:\s.*\b(connected|ready)\b"
+}
+
+function Test-GatewayHttpHealthy {
+    param([int]$Port = 18789)
+
+    try {
+        $response = Invoke-WebRequest -Uri "http://127.0.0.1:$Port/health" -UseBasicParsing -TimeoutSec 5 -ErrorAction Stop
+        $body = $response.Content | ConvertFrom-Json
+        return ($body.ok -eq $true)
+    } catch {
+        return $false
+    }
 }
 
 function Invoke-RepairCommand {
@@ -649,10 +667,19 @@ function Invoke-WatchdogRun {
 
         $channelsProbe = Get-ChannelsStatusProbe
         $discordHealthy = Test-DiscordHealthy -ProbeOutput $channelsProbe.raw
+        Log ("Discord healthy check result: " + $discordHealthy)
+
         if (-not $discordHealthy) {
-            Invoke-DeterministicDiscordRepair
-            $channelsProbe = Get-ChannelsStatusProbe
-            $discordHealthy = Test-DiscordHealthy -ProbeOutput $channelsProbe.raw
+            $httpHealthy = Test-GatewayHttpHealthy -Port (Get-GatewayPort -GatewayStatus $gatewayParsed)
+            Log ("HTTP health fallback check: " + $httpHealthy)
+            if ($httpHealthy) {
+                Log "Probe reported Gateway not reachable but HTTP health endpoint is OK. Skipping Discord repair to avoid unnecessary restart."
+                $discordHealthy = $true
+            } else {
+                Invoke-DeterministicDiscordRepair
+                $channelsProbe = Get-ChannelsStatusProbe
+                $discordHealthy = Test-DiscordHealthy -ProbeOutput $channelsProbe.raw
+            }
         }
 
         if ($discordHealthy) {
