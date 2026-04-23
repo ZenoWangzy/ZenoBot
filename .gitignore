@@ -150,3 +150,7 @@ test/fixtures/openclaw-vitest-unit-report.json
 analysis/
 .artifacts/qa-e2e/
 extensions/qa-lab/web/dist/
+
+# Chrome agent profile (Playwright runtime artifact, created when ~ is used as literal path)
+~
+cookies.json
