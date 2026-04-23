@@ -1,13 +1,22 @@
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { OpenClawConfig } from "../config/config.js";
 import type { CliBackendConfig } from "../config/types.js";
-import type { CliBundleMcpMode } from "../plugins/types.js";
+import type { CliBackendAuthEpochMode, CliBundleMcpMode } from "../plugins/types.js";
+import {
+  __testing as cliBackendsTesting,
+  resolveCliBackendConfig,
+  resolveCliBackendLiveTest,
+} from "./cli-backends.js";
 
-let createEmptyPluginRegistry: typeof import("../plugins/registry.js").createEmptyPluginRegistry;
-let setActivePluginRegistry: typeof import("../plugins/runtime.js").setActivePluginRegistry;
-let normalizeClaudeBackendConfig: typeof import("./cli-backends.js").normalizeClaudeBackendConfig;
-let resolveCliBackendConfig: typeof import("./cli-backends.js").resolveCliBackendConfig;
-let resolveCliBackendLiveTest: typeof import("./cli-backends.js").resolveCliBackendLiveTest;
+type RuntimeBackendEntry = ReturnType<
+  (typeof import("../plugins/cli-backends.runtime.js"))["resolveRuntimeCliBackends"]
+>[number];
+type SetupBackendEntry = NonNullable<
+  ReturnType<(typeof import("../plugins/setup-registry.js"))["resolvePluginSetupCliBackend"]>
+>;
+
+let runtimeBackendEntries: RuntimeBackendEntry[] = [];
+let setupBackendEntries: SetupBackendEntry[] = [];
 
 function createBackendEntry(params: {
   pluginId: string;
@@ -15,6 +24,9 @@ function createBackendEntry(params: {
   config: CliBackendConfig;
   bundleMcp?: boolean;
   bundleMcpMode?: CliBundleMcpMode;
+  defaultAuthProfileId?: string;
+  authEpochMode?: CliBackendAuthEpochMode;
+  prepareExecution?: () => Promise<null>;
   normalizeConfig?: (config: CliBackendConfig) => CliBackendConfig;
 }) {
   return {
@@ -25,6 +37,9 @@ function createBackendEntry(params: {
       config: params.config,
       ...(params.bundleMcp ? { bundleMcp: params.bundleMcp } : {}),
       ...(params.bundleMcpMode ? { bundleMcpMode: params.bundleMcpMode } : {}),
+      ...(params.defaultAuthProfileId ? { defaultAuthProfileId: params.defaultAuthProfileId } : {}),
+      ...(params.authEpochMode ? { authEpochMode: params.authEpochMode } : {}),
+      ...(params.prepareExecution ? { prepareExecution: params.prepareExecution } : {}),
       ...(params.normalizeConfig ? { normalizeConfig: params.normalizeConfig } : {}),
       liveTest: {
         defaultModelRef:
@@ -33,7 +48,7 @@ function createBackendEntry(params: {
             : params.id === "codex-cli"
               ? "codex-cli/gpt-5.4"
               : params.id === "google-gemini-cli"
-                ? "google-gemini-cli/gemini-3.1-pro-preview"
+                ? "google-gemini-cli/gemini-3-flash-preview"
                 : undefined,
         defaultImageProbe: true,
         defaultMcpProbe: true,
@@ -60,6 +75,14 @@ function createBackendEntry(params: {
   };
 }
 
+function createRuntimeBackendEntry(params: Parameters<typeof createBackendEntry>[0]) {
+  const entry = createBackendEntry(params);
+  return {
+    ...entry.backend,
+    pluginId: entry.pluginId,
+  } satisfies RuntimeBackendEntry;
+}
+
 function createClaudeCliOverrideConfig(config: CliBackendConfig): OpenClawConfig {
   return {
     agents: {
@@ -78,8 +101,6 @@ const NORMALIZED_CLAUDE_FALLBACK_ARGS = [
   "stream-json",
   "--setting-sources",
   "user",
-  "--permission-mode",
-  "bypassPermissions",
 ];
 
 const NORMALIZED_CLAUDE_FALLBACK_RESUME_ARGS = [
@@ -88,23 +109,71 @@ const NORMALIZED_CLAUDE_FALLBACK_RESUME_ARGS = [
   "{sessionId}",
   "--setting-sources",
   "user",
-  "--permission-mode",
-  "bypassPermissions",
 ];
 
-beforeAll(async () => {
-  vi.doUnmock("../plugins/setup-registry.js");
-  vi.doUnmock("../plugins/cli-backends.runtime.js");
-  ({ createEmptyPluginRegistry } = await import("../plugins/registry.js"));
-  ({ setActivePluginRegistry } = await import("../plugins/runtime.js"));
-  ({ normalizeClaudeBackendConfig, resolveCliBackendConfig, resolveCliBackendLiveTest } =
-    await import("./cli-backends.js"));
+function normalizeTestClaudeArgs(args?: string[]): string[] | undefined {
+  if (!args) {
+    return args;
+  }
+  const normalized: string[] = [];
+  let hasSettingSources = false;
+  for (let i = 0; i < args.length; i += 1) {
+    const arg = args[i];
+    if (arg === "--dangerously-skip-permissions") {
+      continue;
+    }
+    if (arg === "--setting-sources") {
+      const maybeValue = args[i + 1];
+      if (maybeValue && !maybeValue.startsWith("-")) {
+        hasSettingSources = true;
+        normalized.push(arg, "user");
+        i += 1;
+      }
+      continue;
+    }
+    if (arg.startsWith("--setting-sources=")) {
+      hasSettingSources = true;
+      normalized.push("--setting-sources=user");
+      continue;
+    }
+    if (arg === "--permission-mode") {
+      const maybeValue = args[i + 1];
+      if (maybeValue && !maybeValue.startsWith("-")) {
+        normalized.push(arg, maybeValue);
+        i += 1;
+      }
+      continue;
+    }
+    if (arg.startsWith("--permission-mode=")) {
+      const maybeValue = arg.slice("--permission-mode=".length).trim();
+      if (maybeValue.length > 0 && !maybeValue.startsWith("-")) {
+        normalized.push(`--permission-mode=${maybeValue}`);
+      }
+      continue;
+    }
+    normalized.push(arg);
+  }
+  if (!hasSettingSources) {
+    normalized.push("--setting-sources", "user");
+  }
+  return normalized;
+}
+
+function normalizeTestClaudeBackendConfig(config: CliBackendConfig): CliBackendConfig {
+  return {
+    ...config,
+    args: normalizeTestClaudeArgs(config.args),
+    resumeArgs: normalizeTestClaudeArgs(config.resumeArgs),
+  };
+}
+
+afterEach(() => {
+  cliBackendsTesting.resetDepsForTest();
 });
 
 beforeEach(() => {
-  const registry = createEmptyPluginRegistry();
-  registry.cliBackends = [
-    createBackendEntry({
+  runtimeBackendEntries = [
+    createRuntimeBackendEntry({
       pluginId: "anthropic",
       id: "claude-cli",
       bundleMcp: true,
@@ -117,8 +186,6 @@ beforeEach(() => {
           "--verbose",
           "--setting-sources",
           "user",
-          "--permission-mode",
-          "bypassPermissions",
         ],
         resumeArgs: [
           "stream-json",
@@ -126,21 +193,19 @@ beforeEach(() => {
           "--verbose",
           "--setting-sources",
           "user",
-          "--permission-mode",
-          "bypassPermissions",
           "--resume",
           "{sessionId}",
         ],
         output: "jsonl",
         input: "stdin",
-        env: {
-          CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST: "1",
-        },
         clearEnv: [
           "ANTHROPIC_API_KEY",
           "ANTHROPIC_API_KEY_OLD",
+          "ANTHROPIC_API_TOKEN",
           "ANTHROPIC_AUTH_TOKEN",
           "ANTHROPIC_BASE_URL",
+          "ANTHROPIC_CUSTOM_HEADERS",
+          "ANTHROPIC_OAUTH_TOKEN",
           "ANTHROPIC_UNIX_SOCKET",
           "CLAUDE_CONFIG_DIR",
           "CLAUDE_CODE_API_KEY_FILE_DESCRIPTOR",
@@ -158,13 +223,16 @@ beforeEach(() => {
           "CLAUDE_CODE_USE_VERTEX",
         ],
       },
-      normalizeConfig: normalizeClaudeBackendConfig,
+      normalizeConfig: normalizeTestClaudeBackendConfig,
     }),
-    createBackendEntry({
+    createRuntimeBackendEntry({
       pluginId: "openai",
       id: "codex-cli",
       bundleMcp: true,
       bundleMcpMode: "codex-config-overrides",
+      defaultAuthProfileId: "openai-codex:default",
+      authEpochMode: "profile-only",
+      prepareExecution: async () => null,
       config: {
         command: "codex",
         args: [
@@ -176,7 +244,18 @@ beforeEach(() => {
           "workspace-write",
           "--skip-git-repo-check",
         ],
-        resumeArgs: ["exec", "resume", "{sessionId}", "--dangerously-bypass-approvals-and-sandbox"],
+        resumeArgs: [
+          "exec",
+          "resume",
+          "{sessionId}",
+          "-c",
+          'sandbox_mode="workspace-write"',
+          "--skip-git-repo-check",
+        ],
+        systemPromptFileConfigArg: "-c",
+        systemPromptFileConfigKey: "model_instructions_file",
+        systemPromptWhen: "first",
+        imagePathScope: "workspace",
         reliability: {
           watchdog: {
             fresh: {
@@ -193,7 +272,7 @@ beforeEach(() => {
         },
       },
     }),
-    createBackendEntry({
+    createRuntimeBackendEntry({
       pluginId: "google",
       id: "google-gemini-cli",
       bundleMcp: true,
@@ -211,11 +290,34 @@ beforeEach(() => {
       },
     }),
   ];
-  setActivePluginRegistry(registry);
+  const claudeBackend = runtimeBackendEntries.find((entry) => entry.id === "claude-cli");
+  setupBackendEntries = claudeBackend
+    ? [
+        {
+          pluginId: claudeBackend.pluginId,
+          backend: {
+            ...claudeBackend,
+            config: {
+              ...claudeBackend.config,
+              sessionArg: "--session-id",
+              sessionMode: "always",
+              systemPromptArg: "--append-system-prompt",
+              systemPromptWhen: "first",
+            },
+          },
+        },
+      ]
+    : [];
+  cliBackendsTesting.setDepsForTest({
+    resolveRuntimeCliBackends: () => runtimeBackendEntries,
+    resolvePluginSetupCliBackend: ({ backend }) => {
+      return setupBackendEntries.find((entry) => entry.backend.id === backend);
+    },
+  });
 });
 
 describe("resolveCliBackendConfig reliability merge", () => {
-  it("defaults codex-cli to workspace-write for fresh and resume runs", () => {
+  it("defaults codex-cli fresh sandboxing and config-pinned resume sandboxing", () => {
     const resolved = resolveCliBackendConfig("codex-cli");
 
     expect(resolved).not.toBeNull();
@@ -232,7 +334,9 @@ describe("resolveCliBackendConfig reliability merge", () => {
       "exec",
       "resume",
       "{sessionId}",
-      "--dangerously-bypass-approvals-and-sandbox",
+      "-c",
+      'sandbox_mode="workspace-write"',
+      "--skip-git-repo-check",
     ]);
   });
 
@@ -301,7 +405,7 @@ describe("resolveCliBackendLiveTest", () => {
 });
 
 describe("resolveCliBackendConfig claude-cli defaults", () => {
-  it("uses non-interactive permission-mode defaults for fresh and resume args", () => {
+  it("keeps user-only setting sources without forcing a permission-mode default", () => {
     const resolved = resolveCliBackendConfig("claude-cli");
 
     expect(resolved).not.toBeNull();
@@ -313,8 +417,7 @@ describe("resolveCliBackendConfig claude-cli defaults", () => {
     expect(resolved?.config.args).toContain("--verbose");
     expect(resolved?.config.args).toContain("--setting-sources");
     expect(resolved?.config.args).toContain("user");
-    expect(resolved?.config.args).toContain("--permission-mode");
-    expect(resolved?.config.args).toContain("bypassPermissions");
+    expect(resolved?.config.args).not.toContain("--permission-mode");
     expect(resolved?.config.args).not.toContain("--dangerously-skip-permissions");
     expect(resolved?.config.input).toBe("stdin");
     expect(resolved?.config.resumeArgs).toContain("stream-json");
@@ -322,8 +425,7 @@ describe("resolveCliBackendConfig claude-cli defaults", () => {
     expect(resolved?.config.resumeArgs).toContain("--verbose");
     expect(resolved?.config.resumeArgs).toContain("--setting-sources");
     expect(resolved?.config.resumeArgs).toContain("user");
-    expect(resolved?.config.resumeArgs).toContain("--permission-mode");
-    expect(resolved?.config.resumeArgs).toContain("bypassPermissions");
+    expect(resolved?.config.resumeArgs).not.toContain("--permission-mode");
     expect(resolved?.config.resumeArgs).not.toContain("--dangerously-skip-permissions");
   });
 
@@ -346,14 +448,15 @@ describe("resolveCliBackendConfig claude-cli defaults", () => {
     expect(resolved?.config.command).toBe("/usr/local/bin/claude");
     expect(resolved?.config.args).toContain("--setting-sources");
     expect(resolved?.config.args).toContain("user");
-    expect(resolved?.config.args).toContain("--permission-mode");
-    expect(resolved?.config.args).toContain("bypassPermissions");
+    expect(resolved?.config.args).not.toContain("--permission-mode");
     expect(resolved?.config.resumeArgs).toContain("--setting-sources");
     expect(resolved?.config.resumeArgs).toContain("user");
-    expect(resolved?.config.resumeArgs).toContain("--permission-mode");
-    expect(resolved?.config.resumeArgs).toContain("bypassPermissions");
-    expect(resolved?.config.env).toEqual({ CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST: "1" });
+    expect(resolved?.config.resumeArgs).not.toContain("--permission-mode");
+    expect(resolved?.config.env).not.toHaveProperty("CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST");
+    expect(resolved?.config.clearEnv).toContain("ANTHROPIC_API_TOKEN");
     expect(resolved?.config.clearEnv).toContain("ANTHROPIC_BASE_URL");
+    expect(resolved?.config.clearEnv).toContain("ANTHROPIC_CUSTOM_HEADERS");
+    expect(resolved?.config.clearEnv).toContain("ANTHROPIC_OAUTH_TOKEN");
     expect(resolved?.config.clearEnv).toContain("CLAUDE_CONFIG_DIR");
     expect(resolved?.config.clearEnv).toContain("CLAUDE_CODE_OAUTH_TOKEN");
     expect(resolved?.config.clearEnv).toContain("CLAUDE_CODE_PLUGIN_CACHE_DIR");
@@ -362,7 +465,7 @@ describe("resolveCliBackendConfig claude-cli defaults", () => {
     expect(resolved?.config.clearEnv).toContain("CLAUDE_CODE_USE_COWORK_PLUGINS");
   });
 
-  it("normalizes legacy skip-permissions overrides to permission-mode bypassPermissions", () => {
+  it("drops legacy skip-permissions overrides without inventing bypassPermissions", () => {
     const cfg = {
       agents: {
         defaults: {
@@ -388,11 +491,9 @@ describe("resolveCliBackendConfig claude-cli defaults", () => {
 
     expect(resolved).not.toBeNull();
     expect(resolved?.config.args).not.toContain("--dangerously-skip-permissions");
-    expect(resolved?.config.args).toContain("--permission-mode");
-    expect(resolved?.config.args).toContain("bypassPermissions");
+    expect(resolved?.config.args).not.toContain("--permission-mode");
     expect(resolved?.config.resumeArgs).not.toContain("--dangerously-skip-permissions");
-    expect(resolved?.config.resumeArgs).toContain("--permission-mode");
-    expect(resolved?.config.resumeArgs).toContain("bypassPermissions");
+    expect(resolved?.config.resumeArgs).not.toContain("--permission-mode");
   });
 
   it("keeps explicit permission-mode overrides while removing legacy skip flag", () => {
@@ -494,11 +595,11 @@ describe("resolveCliBackendConfig claude-cli defaults", () => {
     expect(resolved?.config.resumeArgs).toEqual(NORMALIZED_CLAUDE_FALLBACK_RESUME_ARGS);
   });
 
-  it("falls back to bypassPermissions when a custom override leaves permission-mode without a value", () => {
+  it("drops malformed permission-mode overrides without adding bypassPermissions", () => {
     const cfg = createClaudeCliOverrideConfig({
       command: "claude",
       args: ["-p", "--permission-mode", "--output-format", "stream-json"],
-      resumeArgs: ["-p", "--permission-mode", "--resume", "{sessionId}"],
+      resumeArgs: ["-p", "--permission-mode=--resume", "--resume", "{sessionId}"],
     });
 
     const resolved = resolveCliBackendConfig("claude-cli", cfg);
@@ -508,7 +609,7 @@ describe("resolveCliBackendConfig claude-cli defaults", () => {
     expect(resolved?.config.resumeArgs).toEqual(NORMALIZED_CLAUDE_FALLBACK_RESUME_ARGS);
   });
 
-  it("injects bypassPermissions when custom args omit any permission flag", () => {
+  it("leaves permission-mode unset when custom args omit it", () => {
     const cfg = {
       agents: {
         defaults: {
@@ -535,12 +636,10 @@ describe("resolveCliBackendConfig claude-cli defaults", () => {
     expect(resolved).not.toBeNull();
     expect(resolved?.config.args).toContain("--setting-sources");
     expect(resolved?.config.args).toContain("user");
-    expect(resolved?.config.args).toContain("--permission-mode");
-    expect(resolved?.config.args).toContain("bypassPermissions");
+    expect(resolved?.config.args).not.toContain("--permission-mode");
     expect(resolved?.config.resumeArgs).toContain("--setting-sources");
     expect(resolved?.config.resumeArgs).toContain("user");
-    expect(resolved?.config.resumeArgs).toContain("--permission-mode");
-    expect(resolved?.config.resumeArgs).toContain("bypassPermissions");
+    expect(resolved?.config.resumeArgs).not.toContain("--permission-mode");
   });
 
   it("keeps hardened clearEnv defaults when custom claude env overrides are merged", () => {
@@ -565,11 +664,13 @@ describe("resolveCliBackendConfig claude-cli defaults", () => {
 
     expect(resolved).not.toBeNull();
     expect(resolved?.config.env).toEqual({
-      CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST: "1",
       SAFE_CUSTOM: "ok",
       ANTHROPIC_BASE_URL: "https://evil.example.com/v1",
     });
     expect(resolved?.config.clearEnv).toContain("ANTHROPIC_BASE_URL");
+    expect(resolved?.config.clearEnv).toContain("ANTHROPIC_API_TOKEN");
+    expect(resolved?.config.clearEnv).toContain("ANTHROPIC_CUSTOM_HEADERS");
+    expect(resolved?.config.clearEnv).toContain("ANTHROPIC_OAUTH_TOKEN");
     expect(resolved?.config.clearEnv).toContain("CLAUDE_CONFIG_DIR");
     expect(resolved?.config.clearEnv).toContain("CLAUDE_CODE_OAUTH_TOKEN");
     expect(resolved?.config.clearEnv).toContain("CLAUDE_CODE_PLUGIN_CACHE_DIR");
@@ -578,8 +679,7 @@ describe("resolveCliBackendConfig claude-cli defaults", () => {
   });
 
   it("normalizes override-only claude-cli config when the plugin registry is absent", () => {
-    const registry = createEmptyPluginRegistry();
-    setActivePluginRegistry(registry);
+    runtimeBackendEntries = [];
 
     const cfg = {
       agents: {
@@ -606,8 +706,6 @@ describe("resolveCliBackendConfig claude-cli defaults", () => {
       "json",
       "--setting-sources",
       "user",
-      "--permission-mode",
-      "bypassPermissions",
     ]);
     expect(resolved?.config.resumeArgs).toEqual([
       "-p",
@@ -617,8 +715,6 @@ describe("resolveCliBackendConfig claude-cli defaults", () => {
       "{sessionId}",
       "--setting-sources",
       "user",
-      "--permission-mode",
-      "bypassPermissions",
     ]);
     expect(resolved?.config.systemPromptArg).toBe("--append-system-prompt");
     expect(resolved?.config.systemPromptWhen).toBe("first");
@@ -657,14 +753,20 @@ describe("resolveCliBackendConfig google-gemini-cli defaults", () => {
     expect(resolved).not.toBeNull();
     expect(resolved?.bundleMcp).toBe(true);
     expect(resolved?.bundleMcpMode).toBe("codex-config-overrides");
+    expect(resolved?.defaultAuthProfileId).toBe("openai-codex:default");
+    expect(resolved?.authEpochMode).toBe("profile-only");
+    expect(typeof resolved?.prepareExecution).toBe("function");
+    expect(resolved?.config.systemPromptFileConfigArg).toBe("-c");
+    expect(resolved?.config.systemPromptFileConfigKey).toBe("model_instructions_file");
+    expect(resolved?.config.systemPromptWhen).toBe("first");
+    expect(resolved?.config.imagePathScope).toBe("workspace");
   });
 });
 
 describe("resolveCliBackendConfig alias precedence", () => {
   it("prefers the canonical backend key over legacy aliases when both are configured", () => {
-    const registry = createEmptyPluginRegistry();
-    registry.cliBackends = [
-      createBackendEntry({
+    runtimeBackendEntries = [
+      createRuntimeBackendEntry({
         pluginId: "moonshot",
         id: "kimi",
         config: {
@@ -673,7 +775,6 @@ describe("resolveCliBackendConfig alias precedence", () => {
         },
       }),
     ];
-    setActivePluginRegistry(registry);
 
     const cfg = {
       agents: {

@@ -53,15 +53,15 @@ export function updateIrcAccountConfig(
     patch,
     ensureChannelEnabled: false,
     ensureAccountEnabled: false,
-  }) as CoreConfig;
+  });
 }
 
 export function setIrcDmPolicy(cfg: CoreConfig, dmPolicy: DmPolicy): CoreConfig {
-  return setIrcTopLevelDmPolicy(cfg, dmPolicy) as CoreConfig;
+  return setIrcTopLevelDmPolicy(cfg, dmPolicy);
 }
 
 export function setIrcAllowFrom(cfg: CoreConfig, allowFrom: string[]): CoreConfig {
-  return setIrcTopLevelAllowFrom(cfg, allowFrom) as CoreConfig;
+  return setIrcTopLevelAllowFrom(cfg, allowFrom);
 }
 
 export function setIrcNickServ(
@@ -117,7 +117,7 @@ export const ircSetupAdapter: ChannelSetupAdapter = {
       name: setupInput.name,
     });
     const portInput =
-      typeof setupInput.port === "number" ? String(setupInput.port) : String(setupInput.port ?? "");
+      typeof setupInput.port === "number" ? String(setupInput.port) : (setupInput.port ?? "");
     const patch: Partial<IrcAccountConfig> = {
       enabled: true,
       host: setupInput.host?.trim(),
@@ -134,6 +134,6 @@ export const ircSetupAdapter: ChannelSetupAdapter = {
       channelKey: channel,
       accountId,
       patch,
-    }) as CoreConfig;
+    });
   },
 };

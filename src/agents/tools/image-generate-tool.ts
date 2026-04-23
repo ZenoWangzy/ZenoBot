@@ -1,6 +1,6 @@
-import { Type } from "@sinclair/typebox";
-import type { OpenClawConfig } from "../../config/config.js";
+import { Type } from "typebox";
 import { loadConfig } from "../../config/config.js";
+import type { OpenClawConfig } from "../../config/types.openclaw.js";
 import { parseImageGenerationModelRef } from "../../image-generation/model-ref.js";
 import {
   generateImage,
@@ -12,6 +12,7 @@ import type {
   ImageGenerationResolution,
   ImageGenerationSourceImage,
 } from "../../image-generation/types.js";
+import { resolveConfiguredMediaMaxBytes } from "../../media/configured-max-bytes.js";
 import { getImageMetadata } from "../../media/image-ops.js";
 import { saveMediaBuffer } from "../../media/store.js";
 import { loadWebMedia } from "../../media/web-media.js";
@@ -74,7 +75,7 @@ const ImageGenerateToolSchema = Type.Object({
     }),
   ),
   model: Type.Optional(
-    Type.String({ description: "Optional provider/model override, e.g. openai/gpt-image-1." }),
+    Type.String({ description: "Optional provider/model override, e.g. openai/gpt-image-2." }),
   ),
   filename: Type.Optional(
     Type.String({
@@ -85,7 +86,7 @@ const ImageGenerateToolSchema = Type.Object({
   size: Type.Optional(
     Type.String({
       description:
-        "Optional size hint like 1024x1024, 1536x1024, 1024x1536, 1024x1792, or 1792x1024.",
+        "Optional size hint like 1024x1024, 1536x1024, 1024x1536, 2048x2048, or 3840x2160.",
     }),
   ),
   aspectRatio: Type.Optional(
@@ -178,14 +179,6 @@ function normalizeReferenceImages(args: Record<string, unknown>): string[] {
   });
 }
 
-function pickConfiguredMediaMaxBytes(cfg?: OpenClawConfig): number | undefined {
-  const configured = cfg?.agents?.defaults?.mediaMaxMb;
-  if (typeof configured === "number" && Number.isFinite(configured) && configured > 0) {
-    return Math.floor(configured * 1024 * 1024);
-  }
-  return undefined;
-}
-
 function resolveSelectedImageGenerationProvider(params: {
   config?: OpenClawConfig;
   imageGenerationModelConfig: ToolModelConfig;
@@ -200,7 +193,39 @@ function resolveSelectedImageGenerationProvider(params: {
 }
 
 function formatIgnoredImageGenerationOverride(override: ImageGenerationIgnoredOverride): string {
-  return `${override.key}=${override.value}`;
+  return `${override.key}=${sanitizeInlineDirectiveText(override.value)}`;
+}
+
+function sanitizeInlineDirectiveText(value: string): string {
+  let sanitized = "";
+  for (const char of value) {
+    switch (char) {
+      case "\\":
+        sanitized += "\\\\";
+        break;
+      case "\r":
+        sanitized += "\\r";
+        break;
+      case "\n":
+        sanitized += "\\n";
+        break;
+      case "\t":
+        sanitized += "\\t";
+        break;
+      default:
+        if (isInlineDirectiveControlCharacter(char)) {
+          sanitized += `\\u${char.charCodeAt(0).toString(16).padStart(4, "0")}`;
+        } else {
+          sanitized += char;
+        }
+    }
+  }
+  return sanitized;
+}
+
+function isInlineDirectiveControlCharacter(char: string): boolean {
+  const code = char.charCodeAt(0);
+  return code <= 0x1f || code === 0x7f || code === 0x2028 || code === 0x2029;
 }
 
 function validateImageGenerationCapabilities(params: {
@@ -403,20 +428,24 @@ export function createImageGenerateTool(options?: {
       const action = resolveAction(params);
       if (action === "list") {
         const runtimeProviders = listRuntimeImageGenerationProviders({ config: effectiveCfg });
-        const providers = runtimeProviders.map((provider) => ({
-          id: provider.id,
-          ...(provider.label ? { label: provider.label } : {}),
-          ...(provider.defaultModel ? { defaultModel: provider.defaultModel } : {}),
-          models: provider.models ?? (provider.defaultModel ? [provider.defaultModel] : []),
-          configured: isCapabilityProviderConfigured({
-            providers: runtimeProviders,
-            provider,
-            cfg: effectiveCfg,
-            agentDir: options?.agentDir,
-          }),
-          authEnvVars: getImageGenerationProviderAuthEnvVars(provider.id),
-          capabilities: provider.capabilities,
-        }));
+        const providers = runtimeProviders.map((provider) =>
+          Object.assign(
+            { id: provider.id },
+            provider.label ? { label: provider.label } : {},
+            provider.defaultModel ? { defaultModel: provider.defaultModel } : {},
+            {
+              models: provider.models ?? (provider.defaultModel ? [provider.defaultModel] : []),
+              configured: isCapabilityProviderConfigured({
+                providers: runtimeProviders,
+                provider,
+                cfg: effectiveCfg,
+                agentDir: options?.agentDir,
+              }),
+              authEnvVars: getImageGenerationProviderAuthEnvVars(provider.id),
+              capabilities: provider.capabilities,
+            },
+          ),
+        );
         const lines = providers.flatMap((provider) => {
           const caps: string[] = [];
           if (provider.capabilities.edit.enabled) {
@@ -467,9 +496,10 @@ export function createImageGenerateTool(options?: {
         modelOverride: model,
       });
       const count = resolveRequestedCount(params);
+      const configuredMediaMaxBytes = resolveConfiguredMediaMaxBytes(effectiveCfg);
       const loadedReferenceImages = await loadReferenceImages({
         imageInputs,
-        maxBytes: pickConfiguredMediaMaxBytes(effectiveCfg),
+        maxBytes: configuredMediaMaxBytes,
         workspaceDir: options?.workspaceDir,
         sandboxConfig,
       });
@@ -507,9 +537,11 @@ export function createImageGenerateTool(options?: {
         inputImages,
       });
       const ignoredOverrides = result.ignoredOverrides ?? [];
+      const displayProvider = sanitizeInlineDirectiveText(result.provider);
+      const displayModel = sanitizeInlineDirectiveText(result.model);
       const warning =
         ignoredOverrides.length > 0
-          ? `Ignored unsupported overrides for ${result.provider}/${result.model}: ${ignoredOverrides.map(formatIgnoredImageGenerationOverride).join(", ")}.`
+          ? `Ignored unsupported overrides for ${displayProvider}/${displayModel}: ${ignoredOverrides.map(formatIgnoredImageGenerationOverride).join(", ")}.`
           : undefined;
       const normalizedSize =
         result.normalization?.size?.applied ??
@@ -542,7 +574,7 @@ export function createImageGenerateTool(options?: {
             image.buffer,
             image.mimeType,
             "tool-image-generation",
-            undefined,
+            configuredMediaMaxBytes,
             filename || image.fileName,
           ),
         ),
@@ -552,7 +584,7 @@ export function createImageGenerateTool(options?: {
         .map((image) => image.revisedPrompt?.trim())
         .filter((entry): entry is string => Boolean(entry));
       const lines = [
-        `Generated ${savedImages.length} image${savedImages.length === 1 ? "" : "s"} with ${result.provider}/${result.model}.`,
+        `Generated ${savedImages.length} image${savedImages.length === 1 ? "" : "s"} with ${displayProvider}/${displayModel}.`,
         ...(warning ? [`Warning: ${warning}`] : []),
         // Show the actual saved paths so the model does not invent a bogus
         // local path when it references the generated image in a follow-up reply.

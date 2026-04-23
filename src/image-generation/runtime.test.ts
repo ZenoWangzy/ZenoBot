@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getMediaGenerationRuntimeMocks,
   resetImageGenerationRuntimeMocks,
@@ -8,6 +8,15 @@ import { generateImage, listRuntimeImageGenerationProviders } from "./runtime.js
 import type { ImageGenerationProvider } from "./types.js";
 
 const mocks = getMediaGenerationRuntimeMocks();
+
+vi.mock("./model-ref.js", () => ({
+  parseImageGenerationModelRef: mocks.parseImageGenerationModelRef,
+}));
+
+vi.mock("./provider-registry.js", () => ({
+  getImageGenerationProvider: mocks.getImageGenerationProvider,
+  listImageGenerationProviders: mocks.listImageGenerationProviders,
+}));
 
 describe("image-generation runtime", () => {
   beforeEach(() => {
@@ -139,6 +148,9 @@ describe("image-generation runtime", () => {
         error: "OpenAI API key missing",
       },
     ]);
+    expect(mocks.warn).toHaveBeenCalledWith(
+      "image-generation candidate failed: openai/gpt-image-1: OpenAI API key missing",
+    );
   });
 
   it("drops unsupported provider geometry overrides and reports them", async () => {
@@ -344,13 +356,10 @@ describe("image-generation runtime", () => {
       return [];
     });
 
-    const promise = generateImage({ cfg: {} as OpenClawConfig, prompt: "draw a cat" });
-
-    await expect(promise).rejects.toThrow("No image-generation model configured.");
-    await expect(promise).rejects.toThrow(
-      'Set agents.defaults.imageGenerationModel.primary to a provider/model like "vision-one/paint-v1".',
+    await expect(
+      generateImage({ cfg: {} as OpenClawConfig, prompt: "draw a cat" }),
+    ).rejects.toThrow(
+      'No image-generation model configured. Set agents.defaults.imageGenerationModel.primary to a provider/model like "vision-one/paint-v1". If you want a specific provider, also configure that provider\'s auth/API key first (vision-one: VISION_ONE_API_KEY; vision-two: VISION_TWO_API_KEY).',
     );
-    await expect(promise).rejects.toThrow("vision-one: VISION_ONE_API_KEY");
-    await expect(promise).rejects.toThrow("vision-two: VISION_TWO_API_KEY");
   });
 });

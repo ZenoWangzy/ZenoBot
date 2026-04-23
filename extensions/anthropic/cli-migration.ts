@@ -164,10 +164,8 @@ export function buildAnthropicCliMigrationResult(
   const defaults = config.agents?.defaults;
   const rewrittenModel = rewriteModelSelection(defaults?.model);
   const rewrittenModels = rewriteModelEntryMap(defaults?.models);
-  const existingModels = (rewrittenModels.value ??
-    defaults?.models ??
-    {}) as NonNullable<AgentDefaultsModels>;
-  const nextModels = seedClaudeCliAllowlist(existingModels);
+  const existingModels = rewrittenModels.value ?? defaults?.models ?? {};
+  const nextModels = seedClaudeCliAllowlist(existingModels as NonNullable<AgentDefaultsModels>);
   const defaultModel = rewrittenModel.primary ?? CLAUDE_CLI_DEFAULT_MODEL_REF;
 
   return {
@@ -180,6 +178,8 @@ export function buildAnthropicCliMigrationResult(
         },
       },
     },
+    // Rewrites `anthropic/*` -> `claude-cli/*`; merge would keep stale keys.
+    replaceDefaultModels: true,
     defaultModel,
     notes: [
       "Claude CLI auth detected; switched Anthropic model selection to the local Claude CLI backend.",
