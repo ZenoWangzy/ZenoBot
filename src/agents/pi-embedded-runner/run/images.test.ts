@@ -298,6 +298,18 @@ describe("detectAndLoadPromptImages", () => {
     expectNoPromptImages(result);
   });
 
+  it("sanitizes existing images even when prompt has no image references", async () => {
+    const result = await detectAndLoadPromptImages({
+      prompt: "describe the attached image",
+      workspaceDir: "/tmp",
+      model: { input: ["text", "image"] },
+      existingImages: [{ type: "image", data: "not-valid-base64", mimeType: "image/png" }],
+    });
+
+    expect(result.images).toHaveLength(0);
+    expect(result.detectedRefs).toHaveLength(0);
+  });
+
   it("preserves attachment order when offloaded refs and inline images are mixed", async () => {
     const merged = mergePromptAttachmentImages({
       imageOrder: ["offloaded", "inline"],
@@ -368,6 +380,36 @@ describe("detectAndLoadPromptImages", () => {
       expect(result.skippedCount).toBe(1);
       expect(result.images).toHaveLength(0);
     } finally {
+      await fs.rm(stateDir, { recursive: true, force: true });
+    }
+  });
+
+  it("loads managed inbound absolute paths when workspaceOnly is enabled", async () => {
+    const stateDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-native-image-managed-"));
+    const workspaceDir = path.join(stateDir, "workspace-agent");
+    const inboundDir = path.join(stateDir, "media", "inbound");
+    await fs.mkdir(workspaceDir, { recursive: true });
+    await fs.mkdir(inboundDir, { recursive: true });
+    const imagePath = path.join(inboundDir, "signal-replay.png");
+    const pngB64 =
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/woAAn8B9FD5fHAAAAAASUVORK5CYII=";
+    await fs.writeFile(imagePath, Buffer.from(pngB64, "base64"));
+    vi.stubEnv("OPENCLAW_STATE_DIR", stateDir);
+
+    try {
+      const result = await detectAndLoadPromptImages({
+        prompt: `Inspect ${imagePath}`,
+        workspaceDir,
+        model: { input: ["text", "image"] },
+        workspaceOnly: true,
+      });
+
+      expect(result.detectedRefs).toHaveLength(1);
+      expect(result.loadedCount).toBe(1);
+      expect(result.skippedCount).toBe(0);
+      expect(result.images).toHaveLength(1);
+    } finally {
+      vi.unstubAllEnvs();
       await fs.rm(stateDir, { recursive: true, force: true });
     }
   });

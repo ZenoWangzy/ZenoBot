@@ -1,7 +1,6 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AgentRouteBinding } from "../config/types.agents.js";
 import { emitAgentEvent } from "../infra/agent-events.js";
-import "./test-helpers/fast-core-tools.js";
 import {
   getCallGatewayMock,
   getSessionsSpawnTool,
@@ -267,6 +266,32 @@ describe("openclaw-tools: subagents (sessions_spawn lifecycle)", () => {
     const sendCalls = ctx.calls.filter((c) => c.method === "send");
     expect(sendCalls.length).toBe(0);
     expect(child.sessionKey?.startsWith("agent:main:subagent:")).toBe(true);
+  });
+
+  it("gives native child agent startup enough gateway request time", async () => {
+    const ctx = setupSessionsSpawnGatewayMock({
+      includeChatHistory: true,
+      agentWaitResult: { status: "ok", startedAt: 1000, endedAt: 2000 },
+    });
+    const tool = await getSessionsSpawnTool({
+      agentSessionKey: "main",
+      agentChannel: "whatsapp",
+    });
+
+    const result = await tool.execute("call-start-timeout", {
+      task: "do thing",
+      runTimeoutSeconds: 120,
+    });
+
+    expect(result.details).toMatchObject({
+      status: "accepted",
+      runId: expect.any(String),
+    });
+    const childAgentCall = ctx.calls.find((call) => {
+      const params = call.params as { lane?: string } | undefined;
+      return call.method === "agent" && params?.lane === "subagent";
+    });
+    expect(childAgentCall?.timeoutMs).toBe(125_000);
   });
 
   it("sessions_spawn retires bundle MCP runtime when run-mode cleanup completes", async () => {

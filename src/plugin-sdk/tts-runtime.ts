@@ -11,8 +11,16 @@ import type {
   TtsResult,
   TtsRuntimeFacade,
   TtsSynthesisResult,
+  TtsSynthesisStreamResult,
+  TtsStreamResult,
   TtsTelephonyResult,
 } from "./tts-runtime.types.js";
+export {
+  TtsAutoSchema,
+  TtsConfigSchema,
+  TtsModeSchema,
+  TtsProviderSchema,
+} from "../config/zod-schema.core.js";
 
 // Manual facade. Keep loader boundary explicit and avoid typing this public SDK
 // seam through the bundled speech-core runtime surface.
@@ -40,6 +48,10 @@ export const getTtsMaxLength: FacadeModule["getTtsMaxLength"] = createLazyFacade
   loadFacadeModule,
   "getTtsMaxLength",
 );
+export const getTtsPersona: FacadeModule["getTtsPersona"] = createLazyFacadeRuntimeValue(
+  loadFacadeModule,
+  "getTtsPersona",
+);
 export const getTtsProvider: FacadeModule["getTtsProvider"] = createLazyFacadeRuntimeValue(
   loadFacadeModule,
   "getTtsProvider",
@@ -55,6 +67,10 @@ export const isTtsProviderConfigured: FacadeModule["isTtsProviderConfigured"] =
 export const listSpeechVoices: FacadeModule["listSpeechVoices"] = createLazyFacadeRuntimeValue(
   loadFacadeModule,
   "listSpeechVoices",
+);
+export const listTtsPersonas: FacadeModule["listTtsPersonas"] = createLazyFacadeRuntimeValue(
+  loadFacadeModule,
+  "listTtsPersonas",
 );
 export const maybeApplyTtsToPayload: FacadeModule["maybeApplyTtsToPayload"] =
   createLazyFacadeRuntimeValue(loadFacadeModule, "maybeApplyTtsToPayload");
@@ -90,6 +106,10 @@ export const setTtsMaxLength: FacadeModule["setTtsMaxLength"] = createLazyFacade
   loadFacadeModule,
   "setTtsMaxLength",
 );
+export const setTtsPersona: FacadeModule["setTtsPersona"] = createLazyFacadeRuntimeValue(
+  loadFacadeModule,
+  "setTtsPersona",
+);
 export const setTtsProvider: FacadeModule["setTtsProvider"] = createLazyFacadeRuntimeValue(
   loadFacadeModule,
   "setTtsProvider",
@@ -98,9 +118,17 @@ export const synthesizeSpeech: FacadeModule["synthesizeSpeech"] = createLazyFaca
   loadFacadeModule,
   "synthesizeSpeech",
 );
+export const streamSpeech: FacadeModule["streamSpeech"] = createLazyFacadeRuntimeValue(
+  loadFacadeModule,
+  "streamSpeech",
+);
 export const textToSpeech: FacadeModule["textToSpeech"] = createLazyFacadeRuntimeValue(
   loadFacadeModule,
   "textToSpeech",
+);
+export const textToSpeechStream: FacadeModule["textToSpeechStream"] = createLazyFacadeRuntimeValue(
+  loadFacadeModule,
+  "textToSpeechStream",
 );
 export const textToSpeechTelephony: FacadeModule["textToSpeechTelephony"] =
   createLazyFacadeRuntimeValue(loadFacadeModule, "textToSpeechTelephony");
@@ -112,5 +140,7 @@ export type {
   TtsDirectiveParseResult,
   TtsResult,
   TtsSynthesisResult,
+  TtsSynthesisStreamResult,
+  TtsStreamResult,
   TtsTelephonyResult,
 } from "./tts-runtime.types.js";
