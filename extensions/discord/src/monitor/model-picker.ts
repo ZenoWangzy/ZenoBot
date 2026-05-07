@@ -1,3 +1,8 @@
+import type { APISelectMenuOption } from "discord-api-types/v10";
+import { ButtonStyle } from "discord-api-types/v10";
+import type { OpenClawConfig } from "openclaw/plugin-sdk/config-runtime";
+import type { ModelsProviderData } from "openclaw/plugin-sdk/models-provider-runtime";
+import { normalizeProviderId } from "openclaw/plugin-sdk/provider-model-shared";
 import {
   Button,
   Container,
@@ -8,12 +13,7 @@ import {
   type ComponentData,
   type MessagePayloadObject,
   type TopLevelComponents,
-} from "@buape/carbon";
-import type { APISelectMenuOption } from "discord-api-types/v10";
-import { ButtonStyle } from "discord-api-types/v10";
-import type { OpenClawConfig } from "openclaw/plugin-sdk/config-runtime";
-import type { ModelsProviderData } from "openclaw/plugin-sdk/models-provider-runtime";
-import { normalizeProviderId } from "openclaw/plugin-sdk/provider-model-shared";
+} from "../internal/discord.js";
 
 export const DISCORD_MODEL_PICKER_CUSTOM_ID_KEY = "mdlpk";
 export const DISCORD_CUSTOM_ID_MAX_CHARS = 100;
@@ -38,6 +38,7 @@ const PICKER_ACTIONS = [
   "open",
   "provider",
   "model",
+  "runtime",
   "submit",
   "quick",
   "back",
@@ -57,6 +58,7 @@ export type DiscordModelPickerState = {
   view: DiscordModelPickerView;
   userId: string;
   provider?: string;
+  runtime?: string;
   page: number;
   providerPage?: number;
   modelIndex?: number;
@@ -133,8 +135,10 @@ export type DiscordModelPickerModelViewParams = {
   page?: number;
   providerPage?: number;
   currentModel?: string;
+  currentRuntime?: string;
   pendingModel?: string;
   pendingModelIndex?: number;
+  pendingRuntime?: string;
   quickModels?: string[];
   layout?: DiscordModelPickerLayout;
 };

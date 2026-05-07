@@ -1,8 +1,13 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 const enqueueSystemEventMock = vi.hoisted(() => vi.fn());
+type DispatchPluginInteractiveHandlerResult = {
+  matched: boolean;
+  handled: boolean;
+  duplicate: boolean;
+};
 const dispatchPluginInteractiveHandlerMock = vi.hoisted(() =>
-  vi.fn(async () => ({
+  vi.fn<(arg: unknown) => Promise<DispatchPluginInteractiveHandlerResult>>(async () => ({
     matched: false,
     handled: false,
     duplicate: false,
@@ -10,11 +15,22 @@ const dispatchPluginInteractiveHandlerMock = vi.hoisted(() =>
 );
 const resolvePluginConversationBindingApprovalMock = vi.hoisted(() => vi.fn());
 const buildPluginBindingResolvedTextMock = vi.hoisted(() => vi.fn(() => "Binding updated."));
+const resolveApprovalOverGatewayMock = vi.hoisted(() =>
+  vi.fn<(arg: unknown) => Promise<void>>(async () => undefined),
+);
 
 let registerSlackInteractionEvents: typeof import("./interactions.js").registerSlackInteractionEvents;
 
-vi.mock("openclaw/plugin-sdk/infra-runtime", () => ({
-  enqueueSystemEvent: (...args: unknown[]) => enqueueSystemEventMock(...args),
+vi.mock("openclaw/plugin-sdk/system-event-runtime", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("openclaw/plugin-sdk/system-event-runtime")>();
+  return {
+    ...actual,
+    enqueueSystemEvent: (...args: unknown[]) => enqueueSystemEventMock(...args),
+  };
+});
+
+vi.mock("openclaw/plugin-sdk/approval-gateway-runtime", () => ({
+  resolveApprovalOverGateway: (arg: unknown) => resolveApprovalOverGatewayMock(arg),
 }));
 
 vi.mock("openclaw/plugin-sdk/security-runtime", () => ({
@@ -160,7 +176,9 @@ function createContext(overrides?: {
   dmPolicy?: "open" | "allowlist" | "pairing" | "disabled";
   allowFrom?: string[];
   allowNameMatching?: boolean;
+  useAccessGroups?: boolean;
   channelsConfig?: Record<string, { users?: string[] }>;
+  cfg?: Record<string, unknown>;
   shouldDropMismatchedSlackEvent?: (body: unknown) => boolean;
   isChannelAllowed?: (params: {
     channelId?: string;
@@ -221,11 +239,23 @@ function createContext(overrides?: {
   const ctx = {
     app,
     accountId: "default",
+    cfg: overrides?.cfg ?? {
+      channels: {
+        slack: {
+          execApprovals: {
+            enabled: true,
+            approvers: ["U123"],
+            target: "both",
+          },
+        },
+      },
+    },
     runtime: { log: runtimeLog },
     dmEnabled: overrides?.dmEnabled ?? true,
     dmPolicy: overrides?.dmPolicy ?? ("open" as const),
     allowFrom: overrides?.allowFrom ?? ["*"],
     allowNameMatching: overrides?.allowNameMatching ?? false,
+    useAccessGroups: overrides?.useAccessGroups ?? true,
     channelsConfig: overrides?.channelsConfig ?? {},
     channelsConfigKeys: Object.keys(overrides?.channelsConfig ?? {}),
     defaultRequireMention: true,
@@ -263,6 +293,8 @@ describe("registerSlackInteractionEvents", () => {
     resolvePluginConversationBindingApprovalMock.mockResolvedValue({ status: "expired" });
     buildPluginBindingResolvedTextMock.mockClear();
     buildPluginBindingResolvedTextMock.mockReturnValue("Binding updated.");
+    resolveApprovalOverGatewayMock.mockClear();
+    resolveApprovalOverGatewayMock.mockResolvedValue(undefined);
     dispatchPluginInteractiveHandlerMock.mockResolvedValue({
       matched: false,
       handled: false,
@@ -434,6 +466,9 @@ describe("registerSlackInteractionEvents", () => {
         conversationId: "C1",
         interactionId: "U123:C1:100.200:123.trigger:codex:approve:thread-1",
         threadId: "100.100",
+        auth: expect.objectContaining({
+          isAuthorizedSender: true,
+        }),
         interaction: expect.objectContaining({
           actionId: "codex",
           value: "approve:thread-1",
@@ -445,6 +480,150 @@ describe("registerSlackInteractionEvents", () => {
     );
     expect(enqueueSystemEventMock).not.toHaveBeenCalled();
     expect(app.client.chat.update).not.toHaveBeenCalled();
+  });
+
+  it("passes false command auth to Slack plugin interactions for non-allowlisted senders", async () => {
+    dispatchPluginInteractiveHandlerMock.mockResolvedValueOnce({
+      matched: true,
+      handled: true,
+      duplicate: false,
+    });
+    const { ctx, getHandler } = createContext({
+      cfg: {
+        commands: {
+          allowFrom: {
+            slack: ["U_OWNER"],
+          },
+        },
+      },
+    });
+    registerSlackInteractionEvents({ ctx: ctx as never });
+
+    const handler = getHandler();
+    expect(handler).toBeTruthy();
+
+    const ack = vi.fn().mockResolvedValue(undefined);
+    await handler!({
+      ack,
+      body: {
+        user: { id: "U_ALLOWED" },
+        channel: { id: "C1" },
+        container: { channel_id: "C1", message_ts: "100.200", thread_ts: "100.100" },
+        message: {
+          ts: "100.200",
+          text: "fallback",
+          blocks: [
+            {
+              type: "actions",
+              block_id: "codex_actions",
+              elements: [{ type: "button", action_id: "codex" }],
+            },
+          ],
+        },
+      },
+      action: {
+        type: "button",
+        action_id: "codex",
+        block_id: "codex_actions",
+        value: "approve:thread-1",
+      },
+    });
+
+    const dispatchCall = dispatchPluginInteractiveHandlerMock.mock.calls[0]?.[0] as
+      | {
+          invoke?: (params: {
+            registration: { handler: (ctx: unknown) => unknown };
+            namespace: string;
+            payload: string;
+          }) => Promise<unknown>;
+        }
+      | undefined;
+    const registrationHandler = vi.fn();
+    await dispatchCall?.invoke?.({
+      registration: { handler: registrationHandler },
+      namespace: "codex",
+      payload: "approve:thread-1",
+    });
+
+    expect(registrationHandler).toHaveBeenCalledWith(
+      expect.objectContaining({
+        auth: expect.objectContaining({
+          isAuthorizedSender: false,
+        }),
+      }),
+    );
+  });
+
+  it("passes true command auth to Slack plugin interactions for allowlisted senders", async () => {
+    dispatchPluginInteractiveHandlerMock.mockResolvedValueOnce({
+      matched: true,
+      handled: true,
+      duplicate: false,
+    });
+    const { ctx, getHandler } = createContext({
+      cfg: {
+        commands: {
+          allowFrom: {
+            slack: ["U_OWNER"],
+          },
+        },
+      },
+    });
+    registerSlackInteractionEvents({ ctx: ctx as never });
+
+    const handler = getHandler();
+    expect(handler).toBeTruthy();
+
+    const ack = vi.fn().mockResolvedValue(undefined);
+    await handler!({
+      ack,
+      body: {
+        user: { id: "U_OWNER" },
+        channel: { id: "C1" },
+        container: { channel_id: "C1", message_ts: "100.200", thread_ts: "100.100" },
+        message: {
+          ts: "100.200",
+          text: "fallback",
+          blocks: [
+            {
+              type: "actions",
+              block_id: "codex_actions",
+              elements: [{ type: "button", action_id: "codex" }],
+            },
+          ],
+        },
+      },
+      action: {
+        type: "button",
+        action_id: "codex",
+        block_id: "codex_actions",
+        value: "approve:thread-1",
+      },
+    });
+
+    const dispatchCall = dispatchPluginInteractiveHandlerMock.mock.calls[0]?.[0] as
+      | {
+          invoke?: (params: {
+            registration: { handler: (ctx: unknown) => unknown };
+            namespace: string;
+            payload: string;
+          }) => Promise<unknown>;
+        }
+      | undefined;
+    const registrationHandler = vi.fn();
+    await dispatchCall?.invoke?.({
+      registration: { handler: registrationHandler },
+      namespace: "codex",
+      payload: "approve:thread-1",
+    });
+
+    expect(registrationHandler).toHaveBeenCalledWith(
+      expect.objectContaining({
+        auth: expect.objectContaining({
+          isAuthorizedSender: true,
+        }),
+      }),
+    );
   });
 
   it("treats Slack reply buttons as plain interaction events instead of plugin dispatch", async () => {
@@ -642,6 +821,168 @@ describe("registerSlackInteractionEvents", () => {
       response_type: "ephemeral",
     });
     expect(enqueueSystemEventMock).not.toHaveBeenCalled();
+  });
+
+  it("resolves exec approvals from shared interactive Slack actions", async () => {
+    const { ctx, app, getHandler } = createContext({ allowFrom: ["U999"] });
+    registerSlackInteractionEvents({ ctx: ctx as never });
+
+    const handler = getHandler();
+    expect(handler).toBeTruthy();
+
+    const ack = vi.fn().mockResolvedValue(undefined);
+    const respond = vi.fn().mockResolvedValue(undefined);
+    await handler!({
+      ack,
+      respond,
+      body: {
+        user: { id: "U123" },
+        channel: { id: "C1" },
+        container: { channel_id: "C1", message_ts: "100.200", thread_ts: "100.100" },
+        message: {
+          ts: "100.200",
+          text: "Exec approval required",
+          blocks: [
+            {
+              type: "actions",
+              block_id: "exec_actions",
+              elements: [{ type: "button", action_id: "openclaw:reply_button" }],
+            },
+          ],
+        },
+      },
+      action: {
+        type: "button",
+        action_id: "openclaw:reply_button",
+        block_id: "exec_actions",
+        value: "/approve req-123 allow-once",
+        text: { type: "plain_text", text: "Allow once" },
+      },
+    });
+
+    expect(ack).toHaveBeenCalled();
+    expect(resolveApprovalOverGatewayMock).toHaveBeenCalledWith({
+      cfg: ctx.cfg,
+      approvalId: "req-123",
+      decision: "allow-once",
+      senderId: "U123",
+      allowPluginFallback: true,
+      clientDisplayName: "Slack approval (U123)",
+    });
+    expect(resolvePluginConversationBindingApprovalMock).not.toHaveBeenCalled();
+    expect(dispatchPluginInteractiveHandlerMock).not.toHaveBeenCalled();
+    expect(enqueueSystemEventMock).not.toHaveBeenCalled();
+    expect(app.client.chat.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        channel: "C1",
+        ts: "100.200",
+        text: "Exec approval required",
+        blocks: [],
+      }),
+    );
+    expect(respond).not.toHaveBeenCalled();
+  });
+
+  it("keeps exec approval buttons when gateway resolution fails", async () => {
+    resolveApprovalOverGatewayMock.mockRejectedValueOnce(new Error("gateway down"));
+    const { ctx, app, getHandler } = createContext();
+    registerSlackInteractionEvents({ ctx: ctx as never });
+
+    const handler = getHandler();
+    expect(handler).toBeTruthy();
+
+    const ack = vi.fn().mockResolvedValue(undefined);
+    await expect(
+      handler!({
+        ack,
+        body: {
+          user: { id: "U123" },
+          channel: { id: "C1" },
+          container: { channel_id: "C1", message_ts: "100.200" },
+          message: {
+            ts: "100.200",
+            text: "Exec approval required",
+            blocks: [
+              {
+                type: "actions",
+                block_id: "exec_actions",
+                elements: [{ type: "button", action_id: "openclaw:reply_button" }],
+              },
+            ],
+          },
+        },
+        action: {
+          type: "button",
+          action_id: "openclaw:reply_button",
+          block_id: "exec_actions",
+          value: "/approve req-123 allow-once",
+          text: { type: "plain_text", text: "Allow once" },
+        },
+      }),
+    ).rejects.toThrow("gateway down");
+
+    expect(ack).toHaveBeenCalled();
+    expect(resolveApprovalOverGatewayMock).toHaveBeenCalledTimes(1);
+    expect(app.client.chat.update).not.toHaveBeenCalled();
+    expect(enqueueSystemEventMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects unauthorized exec approval interactions without enqueueing them", async () => {
+    const { ctx, app, getHandler } = createContext({
+      cfg: {
+        channels: {
+          slack: {
+            execApprovals: {
+              enabled: true,
+              approvers: ["U999"],
+              target: "both",
+            },
+          },
+        },
+      },
+    });
+    registerSlackInteractionEvents({ ctx: ctx as never });
+
+    const handler = getHandler();
+    expect(handler).toBeTruthy();
+
+    const ack = vi.fn().mockResolvedValue(undefined);
+    const respond = vi.fn().mockResolvedValue(undefined);
+    await handler!({
+      ack,
+      respond,
+      body: {
+        user: { id: "U123" },
+        channel: { id: "C1" },
+        container: { channel_id: "C1", message_ts: "100.200" },
+        message: {
+          ts: "100.200",
+          text: "Exec approval required",
+          blocks: [
+            {
+              type: "actions",
+              block_id: "exec_actions",
+              elements: [{ type: "button", action_id: "openclaw:reply_button" }],
+            },
+          ],
+        },
+      },
+      action: {
+        type: "button",
+        action_id: "openclaw:reply_button",
+        block_id: "exec_actions",
+        value: "/approve req-123 allow-once",
+        text: { type: "plain_text", text: "Allow once" },
+      },
+    });
+
+    expect(resolveApprovalOverGatewayMock).not.toHaveBeenCalled();
+    expect(enqueueSystemEventMock).not.toHaveBeenCalled();
+    expect(app.client.chat.update).not.toHaveBeenCalled();
+    expect(respond).toHaveBeenCalledWith({
+      text: "You are not authorized to approve this request.",
+      response_type: "ephemeral",
+    });
   });
 
   it("drops block actions when mismatch guard triggers", async () => {

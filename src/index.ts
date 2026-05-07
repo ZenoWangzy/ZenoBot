@@ -6,7 +6,8 @@ import { runFatalErrorHooks } from "./infra/fatal-error-hooks.js";
 import { isMainModule } from "./infra/is-main.js";
 import {
   installUnhandledRejectionHandler,
-  isTransientNetworkError,
+  isBenignUncaughtExceptionError,
+  isUncaughtExceptionHandled,
 } from "./infra/unhandled-rejections.js";
 
 type LegacyCliDeps = {
@@ -89,9 +90,12 @@ if (isMain) {
   installUnhandledRejectionHandler();
 
   process.on("uncaughtException", (error) => {
-    if (isTransientNetworkError(error)) {
+    if (isUncaughtExceptionHandled(error)) {
+      return;
+    }
+    if (isBenignUncaughtExceptionError(error)) {
       console.warn(
-        "[openclaw] Suppressed transient network exception:",
+        "[openclaw] Non-fatal uncaught exception (continuing):",
         formatUncaughtError(error),
       );
       return;

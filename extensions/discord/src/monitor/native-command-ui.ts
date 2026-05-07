@@ -1,15 +1,3 @@
-import {
-  Button,
-  Container,
-  Row,
-  StringSelectMenu,
-  TextDisplay,
-  type AutocompleteInteraction,
-  type ButtonInteraction,
-  type CommandInteraction,
-  type ComponentData,
-  type StringSelectMenuInteraction,
-} from "@buape/carbon";
 import { ButtonStyle } from "discord-api-types/v10";
 import { resolveDefaultModelForAgent } from "openclaw/plugin-sdk/agent-runtime";
 import {
@@ -33,6 +21,18 @@ import {
   normalizeOptionalString,
   withTimeout,
 } from "openclaw/plugin-sdk/text-runtime";
+import {
+  Button,
+  Container,
+  Row,
+  StringSelectMenu,
+  TextDisplay,
+  type AutocompleteInteraction,
+  type ButtonInteraction,
+  type CommandInteraction,
+  type ComponentData,
+  type StringSelectMenuInteraction,
+} from "../internal/discord.js";
 import { resolveDiscordSlashCommandConfig } from "./commands.js";
 import {
   readDiscordModelPickerRecentModels,
@@ -49,6 +49,7 @@ import {
   toDiscordModelPickerMessagePayload,
   type DiscordModelPickerCommandContext,
 } from "./model-picker.js";
+import type { DispatchDiscordCommandInteractionResult } from "./native-command-dispatch.js";
 import { resolveDiscordNativeInteractionRouteState } from "./native-command-route.js";
 import { resolveDiscordNativeInteractionChannelContext } from "./native-interaction-channel-context.js";
 import type { ThreadBindingManager } from "./thread-bindings.js";
@@ -85,7 +86,7 @@ export type DispatchDiscordCommandInteractionParams = {
 
 export type DispatchDiscordCommandInteraction = (
   params: DispatchDiscordCommandInteractionParams,
-) => Promise<void>;
+) => Promise<DispatchDiscordCommandInteractionResult>;
 
 export type SafeDiscordInteractionCall = <T>(
   label: string,

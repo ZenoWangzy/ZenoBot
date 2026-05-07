@@ -9,6 +9,11 @@ import type {
   ChannelMessageToolDiscovery,
 } from "openclaw/plugin-sdk/channel-contract";
 import { createChatChannelPlugin } from "openclaw/plugin-sdk/channel-core";
+import {
+  defineChannelMessageAdapter,
+  type ChannelMessageSendResult,
+  type MessageReceiptPartKind,
+} from "openclaw/plugin-sdk/channel-message";
 import { createPairingPrefixStripper } from "openclaw/plugin-sdk/channel-pairing";
 import {
   createAllowlistProviderGroupPolicyWarningCollector,
@@ -66,6 +71,7 @@ import { messageActionTargetAliases } from "./message-action-contract.js";
 import { resolveFeishuGroupToolPolicy } from "./policy.js";
 import { collectRuntimeConfigAssignments, secretTargetRegistryEntries } from "./secret-contract.js";
 import { collectFeishuSecurityAuditFindings } from "./security-audit.js";
+import { createFeishuSendReceipt } from "./send-result.js";
 import { resolveFeishuSessionConversation } from "./session-conversation.js";
 import { resolveFeishuOutboundSessionRoute } from "./session-route.js";
 import { feishuSetupAdapter } from "./setup-core.js";
@@ -79,6 +85,16 @@ function readFeishuMediaParam(params: Record<string, unknown>): string | undefin
     return undefined;
   }
   return media.trim() ? media : undefined;
+}
+
+function readBooleanParam(params: Record<string, unknown>, keys: string[]): boolean | undefined {
+  for (const key of keys) {
+    const value = params[key];
+    if (typeof value === "boolean") {
+      return value;
+    }
+  }
+  return undefined;
 }
 
 function hasLegacyFeishuCardCommandValue(actionValue: unknown): boolean {
@@ -120,6 +136,51 @@ const loadFeishuChannelRuntime = createLazyRuntimeNamedExport(
   () => import("./channel.runtime.js"),
   "feishuChannelRuntime",
 );
+
+function toFeishuMessageSendResult(
+  result: { messageId?: string; chatId?: string; receipt?: ChannelMessageSendResult["receipt"] },
+  kind: MessageReceiptPartKind,
+): ChannelMessageSendResult {
+  const receipt =
+    result.receipt ??
+    createFeishuSendReceipt({
+      messageId: result.messageId,
+      chatId: result.chatId ?? "",
+      kind,
+    });
+  return {
+    messageId: result.messageId || receipt.primaryPlatformMessageId,
+    receipt,
+  };
+}
+
+const feishuMessageAdapter = defineChannelMessageAdapter({
+  id: "feishu",
+  durableFinal: {
+    capabilities: {
+      text: true,
+      media: true,
+    },
+  },
+  send: {
+    text: async (ctx) => {
+      const runtime = await loadFeishuChannelRuntime();
+      const sendText = runtime.feishuOutbound.sendText;
+      if (!sendText) {
+        throw new Error("Feishu text sending is not available.");
+      }
+      return toFeishuMessageSendResult(await sendText(ctx), "text");
+    },
+    media: async (ctx) => {
+      const runtime = await loadFeishuChannelRuntime();
+      const sendMedia = runtime.feishuOutbound.sendMedia;
+      if (!sendMedia) {
+        throw new Error("Feishu media sending is not available.");
+      }
+      return toFeishuMessageSendResult(await sendMedia(ctx), "media");
+    },
+  },
+});
 
 function buildFeishuPresentationCard(params: {
   presentation: NonNullable<ReturnType<typeof normalizeMessagePresentation>>;
@@ -578,6 +639,12 @@ export const feishuPlugin: ChannelPlugin<ResolvedFeishuAccount, FeishuProbeResul
         polls: false,
         threads: true,
         media: true,
+        tts: {
+          voice: {
+            synthesisTarget: "voice-note",
+            transcodesAudio: true,
+          },
+        },
         reactions: true,
         edit: true,
         reply: true,
@@ -695,6 +762,7 @@ export const feishuPlugin: ChannelPlugin<ResolvedFeishuAccount, FeishuProbeResul
             const presentation = normalizeMessagePresentation(ctx.params.presentation);
             const text = readFirstString(ctx.params, ["text", "message"]);
             const mediaUrl = readFeishuMediaParam(ctx.params);
+            const audioAsVoice = readBooleanParam(ctx.params, ["asVoice", "audioAsVoice"]);
             const card = presentation
               ? buildFeishuPresentationCard({ presentation, fallbackText: text })
               : undefined;
@@ -734,6 +802,7 @@ export const feishuPlugin: ChannelPlugin<ResolvedFeishuAccount, FeishuProbeResul
                 accountId: ctx.accountId ?? undefined,
                 mediaLocalRoots: ctx.mediaLocalRoots,
                 replyToId: replyToMessageId,
+                ...(audioAsVoice === true ? { audioAsVoice: true } : {}),
               });
             } else {
               result = await runtime.sendMessageFeishu({
@@ -1122,18 +1191,36 @@ export const feishuPlugin: ChannelPlugin<ResolvedFeishuAccount, FeishuProbeResul
       auth: {
         login: async ({ cfg }) => {
           const { createClackPrompter } = await import("openclaw/plugin-sdk/setup-runtime");
-          const { writeConfigFile } = await import("openclaw/plugin-sdk/config-runtime");
+          const { replaceConfigFile } = await import("openclaw/plugin-sdk/config-mutation");
           const prompter = createClackPrompter();
           const nextCfg = await runFeishuLogin({ cfg, prompter });
           if (nextCfg !== cfg) {
-            await writeConfigFile(nextCfg);
+            await replaceConfigFile({
+              nextConfig: nextCfg,
+              afterWrite: { mode: "auto" },
+            });
           }
         },
       },
       setup: feishuSetupAdapter,
       setupWizard: feishuSetupWizard,
       messaging: {
+        targetPrefixes: ["feishu", "lark"],
         normalizeTarget: (raw) => normalizeFeishuTarget(raw) ?? undefined,
+        resolveDeliveryTarget: ({ conversationId, parentConversationId }) => {
+          const directId = parseFeishuDirectConversationId(conversationId);
+          if (directId) {
+            return { to: `user:${directId}` };
+          }
+          const parsed = parseFeishuConversationId({ conversationId, parentConversationId });
+          if (parsed?.topicId) {
+            return {
+              to: `chat:${parentConversationId?.trim() || parsed.chatId}`,
+              threadId: parsed.topicId,
+            };
+          }
+          return { to: `chat:${parsed?.chatId ?? conversationId.trim()}` };
+        },
         resolveSessionConversation: ({ kind, rawId }) =>
           resolveFeishuSessionConversation({ kind, rawId }),
         resolveOutboundSessionRoute: (params) => resolveFeishuOutboundSessionRoute(params),
@@ -1219,6 +1306,7 @@ export const feishuPlugin: ChannelPlugin<ResolvedFeishuAccount, FeishuProbeResul
           });
         },
       },
+      message: feishuMessageAdapter,
     },
     security: {
       collectWarnings: projectConfigAccountIdWarningCollector<{
@@ -1248,6 +1336,26 @@ export const feishuPlugin: ChannelPlugin<ResolvedFeishuAccount, FeishuProbeResul
       chunker: chunkTextForOutbound,
       chunkerMode: "markdown",
       textChunkLimit: 4000,
+      presentationCapabilities: {
+        supported: true,
+        buttons: true,
+        selects: false,
+        context: true,
+        divider: true,
+      },
+      renderPresentation: async (ctx) => {
+        const runtime = await loadFeishuChannelRuntime();
+        const renderPresentation = runtime.feishuOutbound.renderPresentation;
+        return renderPresentation ? await renderPresentation(ctx) : null;
+      },
+      sendPayload: async (ctx) => {
+        const runtime = await loadFeishuChannelRuntime();
+        const sendPayload = runtime.feishuOutbound.sendPayload;
+        if (!sendPayload) {
+          throw new Error("Feishu payload sending is not available.");
+        }
+        return await sendPayload(ctx);
+      },
       ...createRuntimeOutboundDelegates({
         getRuntime: loadFeishuChannelRuntime,
         sendText: { resolve: (runtime) => runtime.feishuOutbound.sendText },

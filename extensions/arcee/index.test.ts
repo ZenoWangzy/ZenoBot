@@ -1,7 +1,9 @@
+import {
+  registerSingleProviderPlugin,
+  resolveProviderPluginChoice,
+} from "openclaw/plugin-sdk/plugin-test-runtime";
+import { resolveProviderAuthEnvVarCandidates } from "openclaw/plugin-sdk/provider-env-vars";
 import { describe, expect, it } from "vitest";
-import { resolveProviderPluginChoice } from "../../src/plugins/provider-auth-choice.runtime.js";
-import { resolveProviderAuthEnvVarCandidates } from "../../src/secrets/provider-env-vars.js";
-import { registerSingleProviderPlugin } from "../../test/helpers/plugins/plugin-registration.js";
 import { runSingleProviderCatalog } from "../test-support/provider-model-test-helpers.js";
 import arceePlugin from "./index.js";
 
@@ -90,6 +92,12 @@ describe("arcee provider plugin", () => {
       "trinity-large-preview",
       "trinity-large-thinking",
     ]);
+    expect(
+      catalogProvider.models?.find((model) => model.id === "trinity-large-thinking")?.compat,
+    ).toMatchObject({
+      supportsTools: false,
+      supportsReasoningEffort: false,
+    });
   });
 
   it("builds the OpenRouter-backed Arcee AI model catalog", async () => {
@@ -110,6 +118,12 @@ describe("arcee provider plugin", () => {
       "arcee/trinity-large-preview",
       "arcee/trinity-large-thinking",
     ]);
+    expect(
+      catalogProvider.models?.find((model) => model.id === "arcee/trinity-large-thinking")?.compat,
+    ).toMatchObject({
+      supportsTools: false,
+      supportsReasoningEffort: false,
+    });
   });
 
   it("normalizes Arcee OpenRouter models to vendor-prefixed runtime ids", async () => {

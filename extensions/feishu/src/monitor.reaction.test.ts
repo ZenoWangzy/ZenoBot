@@ -1,15 +1,18 @@
-import { hasControlCommand } from "openclaw/plugin-sdk/command-auth";
 import {
   createInboundDebouncer,
   resolveInboundDebounceMs,
-} from "openclaw/plugin-sdk/reply-runtime";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createNonExitingTypedRuntimeEnv } from "../../../test/helpers/plugins/runtime-env.js";
-import type { ClawdbotConfig, PluginRuntime, RuntimeEnv } from "../runtime-api.js";
+} from "openclaw/plugin-sdk/channel-inbound-debounce";
+import { hasControlCommand } from "openclaw/plugin-sdk/command-detection";
+import { createNonExitingRuntimeEnv } from "openclaw/plugin-sdk/plugin-test-runtime";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { ClawdbotConfig, PluginRuntime } from "../runtime-api.js";
 import { parseFeishuMessageEvent, type FeishuMessageEvent } from "./bot.js";
 import * as dedup from "./dedup.js";
-import { monitorSingleAccount } from "./monitor.account.js";
-import { resolveReactionSyntheticEvent, type FeishuReactionCreatedEvent } from "./monitor.js";
+import {
+  monitorSingleAccount,
+  resolveReactionSyntheticEvent,
+  type FeishuReactionCreatedEvent,
+} from "./monitor.account.js";
 import { setFeishuRuntime } from "./runtime.js";
 import type { ResolvedFeishuAccount } from "./types.js";
 
@@ -41,6 +44,14 @@ vi.mock("./monitor.transport.js", () => ({
 vi.mock("./thread-bindings.js", () => ({
   createFeishuThreadBindingManager: createFeishuThreadBindingManagerMock,
 }));
+
+afterAll(() => {
+  vi.doUnmock("./client.js");
+  vi.doUnmock("./bot.js");
+  vi.doUnmock("./monitor.transport.js");
+  vi.doUnmock("./thread-bindings.js");
+  vi.resetModules();
+});
 
 const cfg = {} as ClawdbotConfig;
 
@@ -172,7 +183,7 @@ async function setupDebounceMonitor(params?: {
   await monitorSingleAccount({
     cfg: buildDebounceConfig(),
     account: buildDebounceAccount(),
-    runtime: createNonExitingTypedRuntimeEnv<RuntimeEnv>(),
+    runtime: createNonExitingRuntimeEnv(),
     botOpenIdSource: {
       kind: "prefetched",
       botOpenId: params?.botOpenId ?? "ou_bot",
@@ -454,7 +465,7 @@ describe("monitorSingleAccount lifecycle", () => {
     await monitorSingleAccount({
       cfg: buildDebounceConfig(),
       account: buildDebounceAccount(),
-      runtime: createNonExitingTypedRuntimeEnv<RuntimeEnv>(),
+      runtime: createNonExitingRuntimeEnv(),
       botOpenIdSource: {
         kind: "prefetched",
         botOpenId: "ou_bot",
@@ -479,7 +490,7 @@ describe("monitorSingleAccount lifecycle", () => {
       monitorSingleAccount({
         cfg: buildDebounceConfig(),
         account: buildDebounceAccount(),
-        runtime: createNonExitingTypedRuntimeEnv<RuntimeEnv>(),
+        runtime: createNonExitingRuntimeEnv(),
         botOpenIdSource: {
           kind: "prefetched",
           botOpenId: "ou_bot",

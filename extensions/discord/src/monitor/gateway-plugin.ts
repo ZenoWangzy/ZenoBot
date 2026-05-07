@@ -229,6 +229,8 @@ function resolveGatewayInfoWithFallback(params: { runtime?: RuntimeEnv; error: u
   };
 }
 
+const registrationPromises = new WeakMap<carbonGateway.GatewayPlugin, Promise<void>>();
+
 function createGatewayPlugin(params: {
   options: {
     reconnect: { maxAttempts: number };
@@ -264,14 +266,24 @@ function createGatewayPlugin(params: {
         clearInterval(this.heartbeatInterval);
         this.heartbeatInterval = undefined;
       }
-      if (this.firstHeartbeatTimeout !== undefined) {
-        clearTimeout(this.firstHeartbeatTimeout);
-        this.firstHeartbeatTimeout = undefined;
+      // firstHeartbeatTimeout is not declared in the @buape/carbon .d.ts for this
+      // version but does exist at runtime; access via cast to avoid TS2339.
+      const self = this as unknown as { firstHeartbeatTimeout?: NodeJS.Timeout };
+      if (self.firstHeartbeatTimeout !== undefined) {
+        clearTimeout(self.firstHeartbeatTimeout);
+        self.firstHeartbeatTimeout = undefined;
       }
       super.connect(resume);
     }
 
-    override async registerClient(
+    override registerClient(client: Parameters<carbonGateway.GatewayPlugin["registerClient"]>[0]) {
+      const registration = this.registerClientInternal(client);
+      registration.catch(() => {});
+      registrationPromises.set(this, registration);
+      return registration;
+    }
+
+    private async registerClientInternal(
       client: Parameters<carbonGateway.GatewayPlugin["registerClient"]>[0],
     ) {
       if (!this.gatewayInfo || this.gatewayInfoUsedFallback) {
@@ -460,6 +472,15 @@ export function createDiscordGatewayPlugin(params: {
         : undefined,
     });
   }
+}
+
+export function waitForDiscordGatewayPluginRegistration(
+  plugin: unknown,
+): Promise<void> | undefined {
+  if (typeof plugin !== "object" || plugin === null) {
+    return undefined;
+  }
+  return registrationPromises.get(plugin as carbonGateway.GatewayPlugin);
 }
 
 export {

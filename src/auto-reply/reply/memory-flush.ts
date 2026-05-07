@@ -1,6 +1,7 @@
-import crypto from "node:crypto";
+import { createHash } from "node:crypto";
 import { resolveContextTokensForModel } from "../../agents/context.js";
 import { DEFAULT_CONTEXT_TOKENS } from "../../agents/defaults.js";
+import { parseNonNegativeByteSize } from "../../config/byte-size.js";
 import { resolveFreshSessionTotalTokens, type SessionEntry } from "../../config/sessions.js";
 import type { OpenClawConfig } from "../../config/types.openclaw.js";
 
@@ -19,6 +20,15 @@ export function resolveMemoryFlushContextWindowTokens(params: {
       allowAsyncLoad: false,
     }) ?? DEFAULT_CONTEXT_TOKENS
   );
+}
+
+export function resolveMaxActiveTranscriptBytes(cfg?: OpenClawConfig): number | undefined {
+  const compaction = cfg?.agents?.defaults?.compaction;
+  if (compaction?.truncateAfterCompaction !== true) {
+    return undefined;
+  }
+  const parsed = parseNonNegativeByteSize(compaction.maxActiveTranscriptBytes);
+  return typeof parsed === "number" && parsed > 0 ? parsed : undefined;
 }
 
 function resolvePositiveTokenCount(value: number | undefined): number | undefined {
@@ -114,18 +124,19 @@ export function hasAlreadyFlushedForCurrentCompaction(
 }
 
 /**
- * Compute a lightweight content hash from the tail of a session transcript.
- * Used for state-based flush deduplication — if the hash hasn't changed since
- * the last flush, the context is effectively the same and flushing again would
- * produce duplicate memory entries.
- *
- * Hash input: `messages.length` + content of the last 3 user/assistant messages.
- * Algorithm: SHA-256 truncated to 16 hex chars (collision-resistant enough for dedup).
+ * Computes a short content-based hash over a list of messages for deduplication.
+ * Used to detect when the context window has not meaningfully changed between
+ * two memory flush attempts, allowing the second attempt to be skipped.
  */
-export function computeContextHash(messages: Array<{ role?: string; content?: unknown }>): string {
-  const userAssistant = messages.filter((m) => m.role === "user" || m.role === "assistant");
-  const tail = userAssistant.slice(-3);
-  const payload = `${messages.length}:${tail.map((m, i) => `[${i}:${m.role ?? ""}]${typeof m.content === "string" ? m.content : JSON.stringify(m.content ?? "")}`).join("\x00")}`;
-  const hash = crypto.createHash("sha256").update(payload).digest("hex");
-  return hash.slice(0, 16);
+export function computeContextHash(
+  messages: ReadonlyArray<{ role?: string | undefined; content?: unknown }>,
+): string {
+  const h = createHash("sha256");
+  for (const msg of messages) {
+    h.update(msg.role ?? "");
+    h.update("\0");
+    h.update(typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content ?? null));
+    h.update("\0");
+  }
+  return h.digest("hex").slice(0, 16);
 }
