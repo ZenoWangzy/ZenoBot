@@ -178,6 +178,21 @@ Token resolution is account-aware. Config token values win over env fallback. `D
 For advanced outbound calls (message tool/channel actions), an explicit per-call `token` is used for that call. This applies to send and read/probe-style actions (for example read/search/fetch/thread/pins/permissions). Account policy/retry settings still come from the selected account in the active runtime snapshot.
 </Note>
 
+## Local macOS binding note (project record)
+
+For this Mac deployment, OpenClaw is bound to Discord bot identity `Zenomacbot`.
+
+- OpenClaw Discord bot: `Zenomacbot`
+- Hermes Discord bot: `mac-hermes`
+- These are separate projects and must not share token/config runtime.
+
+If you observe "connected but no reply", verify the active bot identity first, then approve pairing again if needed:
+
+```bash
+openclaw pairing list discord
+openclaw pairing approve discord <CODE>
+```
+
 ## Recommended: Set up a guild workspace
 
 Once DMs are working, you can set up your Discord server as a full workspace where each channel gets its own agent session with its own context. This is recommended for private servers where it's just you and your bot.
