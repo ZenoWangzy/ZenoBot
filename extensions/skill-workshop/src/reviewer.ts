@@ -168,7 +168,7 @@ function countToolCallsInValue(value: unknown): number {
 }
 
 export function countToolCalls(messages: unknown[]): number {
-  return messages.reduce((sum, message) => sum + countToolCallsInValue(message), 0);
+  return messages.reduce<number>((sum, message) => sum + countToolCallsInValue(message), 0);
 }
 
 function buildTranscript(messages: unknown[]): string {

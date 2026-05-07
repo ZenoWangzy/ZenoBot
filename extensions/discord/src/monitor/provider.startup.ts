@@ -108,10 +108,14 @@ export async function createDiscordMonitorClient(params: {
 }) {
   let autoPresenceController: DiscordAutoPresenceController | null = null;
   const clientPlugins: Plugin[] = [
+    // Cast required: createDiscordGatewayPlugin returns carbonGateway.GatewayPlugin whose
+    // registerClient parameter is typed against @buape/carbon's Client, but internally the
+    // runtime Client is structurally compatible. The two Plugin types differ only in Client
+    // type parameter origin, not shape.
     params.createGatewayPlugin({
       discordConfig: params.discordConfig,
       runtime: params.runtime,
-    }),
+    }) as unknown as Plugin,
   ];
   if (params.voiceEnabled) {
     clientPlugins.push(new VoicePlugin());

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { resolveContextTokensForModel } from "../../agents/context.js";
 import { DEFAULT_CONTEXT_TOKENS } from "../../agents/defaults.js";
 import { parseNonNegativeByteSize } from "../../config/byte-size.js";
@@ -120,4 +121,22 @@ export function hasAlreadyFlushedForCurrentCompaction(
   const compactionCount = entry.compactionCount ?? 0;
   const lastFlushAt = entry.memoryFlushCompactionCount;
   return typeof lastFlushAt === "number" && lastFlushAt === compactionCount;
+}
+
+/**
+ * Computes a short content-based hash over a list of messages for deduplication.
+ * Used to detect when the context window has not meaningfully changed between
+ * two memory flush attempts, allowing the second attempt to be skipped.
+ */
+export function computeContextHash(
+  messages: ReadonlyArray<{ role?: string | undefined; content?: unknown }>,
+): string {
+  const h = createHash("sha256");
+  for (const msg of messages) {
+    h.update(msg.role ?? "");
+    h.update("\0");
+    h.update(typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content ?? null));
+    h.update("\0");
+  }
+  return h.digest("hex").slice(0, 16);
 }

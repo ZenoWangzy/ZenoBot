@@ -18,6 +18,7 @@ export function resolveCliSpawnInvocation(params: {
   args: string[];
   env: NodeJS.ProcessEnv;
   packageName: string;
+  allowShellFallback?: boolean;
 }): CliSpawnInvocation {
   const program = resolveWindowsSpawnProgram({
     command: params.command,
@@ -25,7 +26,7 @@ export function resolveCliSpawnInvocation(params: {
     env: params.env,
     execPath: process.execPath,
     packageName: params.packageName,
-    allowShellFallback: false,
+    allowShellFallback: params.allowShellFallback ?? false,
   });
   return materializeWindowsSpawnProgram(program, params.args);
 }

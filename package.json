@@ -982,38 +982,6 @@
       "types": "./dist/plugin-sdk/keyed-async-queue.d.ts",
       "default": "./dist/plugin-sdk/keyed-async-queue.js"
     },
-    "./plugin-sdk/line-runtime": {
-      "types": "./dist/plugin-sdk/line-runtime.d.ts",
-      "default": "./dist/plugin-sdk/line-runtime.js"
-    },
-    "./plugin-sdk/line-surface": {
-      "types": "./dist/plugin-sdk/line-surface.d.ts",
-      "default": "./dist/plugin-sdk/line-surface.js"
-    },
-    "./plugin-sdk/llm-task": {
-      "types": "./dist/plugin-sdk/llm-task.d.ts",
-      "default": "./dist/plugin-sdk/llm-task.js"
-    },
-    "./plugin-sdk/matrix": {
-      "types": "./dist/plugin-sdk/matrix.d.ts",
-      "default": "./dist/plugin-sdk/matrix.js"
-    },
-    "./plugin-sdk/matrix-helper": {
-      "types": "./dist/plugin-sdk/matrix-helper.d.ts",
-      "default": "./dist/plugin-sdk/matrix-helper.js"
-    },
-    "./plugin-sdk/matrix-runtime-surface": {
-      "types": "./dist/plugin-sdk/matrix-runtime-surface.d.ts",
-      "default": "./dist/plugin-sdk/matrix-runtime-surface.js"
-    },
-    "./plugin-sdk/matrix-surface": {
-      "types": "./dist/plugin-sdk/matrix-surface.d.ts",
-      "default": "./dist/plugin-sdk/matrix-surface.js"
-    },
-    "./plugin-sdk/matrix-thread-bindings": {
-      "types": "./dist/plugin-sdk/matrix-thread-bindings.d.ts",
-      "default": "./dist/plugin-sdk/matrix-thread-bindings.js"
-    },
     "./plugin-sdk/qa-runner-runtime": {
       "types": "./dist/plugin-sdk/qa-runner-runtime.d.ts",
       "default": "./dist/plugin-sdk/qa-runner-runtime.js"
@@ -1157,10 +1125,6 @@
     "./plugin-sdk/provider-selection-runtime": {
       "types": "./dist/plugin-sdk/provider-selection-runtime.d.ts",
       "default": "./dist/plugin-sdk/provider-selection-runtime.js"
-    },
-    "./plugin-sdk/plugin-entry": {
-      "types": "./dist/plugin-sdk/plugin-entry.d.ts",
-      "default": "./dist/plugin-sdk/plugin-entry.js"
     },
     "./plugin-sdk/provider-catalog-runtime": {
       "types": "./dist/plugin-sdk/provider-catalog-runtime.d.ts",
@@ -1310,14 +1274,6 @@
       "types": "./dist/plugin-sdk/tool-send.d.ts",
       "default": "./dist/plugin-sdk/tool-send.js"
     },
-    "./plugin-sdk/twitch": {
-      "types": "./dist/plugin-sdk/twitch.d.ts",
-      "default": "./dist/plugin-sdk/twitch.js"
-    },
-    "./plugin-sdk/voice-call": {
-      "types": "./dist/plugin-sdk/voice-call.d.ts",
-      "default": "./dist/plugin-sdk/voice-call.js"
-    },
     "./plugin-sdk/web-media": {
       "types": "./dist/plugin-sdk/web-media.d.ts",
       "default": "./dist/plugin-sdk/web-media.js"
@@ -1337,18 +1293,6 @@
     "./plugin-sdk/webhook-path": {
       "types": "./dist/plugin-sdk/webhook-path.d.ts",
       "default": "./dist/plugin-sdk/webhook-path.js"
-    },
-    "./plugin-sdk/zalo": {
-      "types": "./dist/plugin-sdk/zalo.d.ts",
-      "default": "./dist/plugin-sdk/zalo.js"
-    },
-    "./plugin-sdk/zalo-setup": {
-      "types": "./dist/plugin-sdk/zalo-setup.d.ts",
-      "default": "./dist/plugin-sdk/zalo-setup.js"
-    },
-    "./plugin-sdk/web-media": {
-      "types": "./dist/plugin-sdk/web-media.d.ts",
-      "default": "./dist/plugin-sdk/web-media.js"
     },
     "./plugin-sdk/zalouser": {
       "types": "./dist/plugin-sdk/zalouser.d.ts",

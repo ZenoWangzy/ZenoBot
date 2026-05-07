@@ -53,6 +53,7 @@ import {
 } from "./native-command-bypass.js";
 import { buildDiscordNativeCommandContext } from "./native-command-context.js";
 import type { DispatchDiscordCommandInteractionResult } from "./native-command-dispatch.js";
+import { resolveDiscordNativeChoiceContext } from "./native-command-model-picker-ui.js";
 import {
   DISCORD_EMPTY_VISIBLE_REPLY_WARNING,
   deliverDiscordInteractionReply,
@@ -66,7 +67,6 @@ import {
   createDiscordModelPickerFallbackButton as createDiscordModelPickerFallbackButtonUi,
   createDiscordModelPickerFallbackSelect as createDiscordModelPickerFallbackSelectUi,
   replyWithDiscordModelPickerProviders,
-  resolveDiscordNativeChoiceContext,
   shouldOpenDiscordModelPickerFromCommand,
   type DiscordCommandArgContext,
   type DiscordModelPickerContext,
@@ -509,7 +509,7 @@ async function dispatchDiscordCommandInteraction(params: {
     );
   const menuModelContext = menuNeedsModelContext
     ? await resolveDiscordNativeChoiceContext({
-        interaction: interaction as CommandInteraction,
+        interaction,
         cfg,
         accountId,
         threadBindings,

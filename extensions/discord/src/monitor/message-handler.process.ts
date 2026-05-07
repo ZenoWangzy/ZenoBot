@@ -1,4 +1,4 @@
-import { ChannelType, type RequestClient } from "@buape/carbon";
+import { ChannelType } from "discord-api-types/v10";
 import {
   EmbeddedBlockChunker,
   resolveAckReaction,
@@ -50,6 +50,7 @@ import { createDiscordRestClient } from "../client.js";
 import { resolveDiscordConversationIdentity } from "../conversation-identity.js";
 import { resolveDiscordDraftStreamingChunking } from "../draft-chunking.js";
 import { createDiscordDraftStream } from "../draft-stream.js";
+import type { RequestClient } from "../internal/rest.js";
 import { resolveDiscordPreviewStreamMode } from "../preview-streaming.js";
 import { removeReactionDiscord } from "../send.js";
 import { editMessageDiscord } from "../send.messages.js";
@@ -811,6 +812,7 @@ export async function processDiscordMessage(
               }
               notifyFinalReplyStart();
               await editMessageDiscord(deliverChannelId, previewMessageId, edit, {
+                cfg,
                 rest: deliveryRest,
               });
             },
