@@ -415,12 +415,13 @@ final class GatewayProcessManager {
         self.networkMonitor = monitor
         monitor.pathUpdateHandler = { [weak self] path in
             guard let self else { return }
-            let previous = self.lastNetworkPath
-            self.lastNetworkPath = path
-            // Fire on transition from non-satisfied → satisfied (network restored).
-            if path.status == .satisfied && previous?.status != .satisfied && previous != nil {
-                self.logger.info("network path restored — notifying gateway")
-                Task { @MainActor in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                let previous = self.lastNetworkPath
+                self.lastNetworkPath = path
+                // Fire on transition from non-satisfied → satisfied (network restored).
+                if path.status == .satisfied && previous?.status != .satisfied && previous != nil {
+                    self.logger.info("network path restored — notifying gateway")
                     await self.notifyGatewayNetworkOnline()
                 }
             }
